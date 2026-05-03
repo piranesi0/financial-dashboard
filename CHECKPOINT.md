@@ -1,12 +1,13 @@
-# Financials — Checkpoint (2026-05-03)
+# Financials — Checkpoint (2026-05-03, updated)
 
 ## What this is
 
 Local-first Python/SQLite household financial planning tool for Alex + Charly + Theodore.
 No auth, no external deps at runtime, all data stays local.
 
-Run: `uv run financials web <db> --port 8765`
-Dev DB: `/tmp/financials-dev.sqlite`
+Run: `make run` (foreground, Ctrl+C to stop) or `make start` / `make stop` (background)
+Default DB: `financials.sqlite` (project root). Binds `0.0.0.0:8000` — accessible on LAN.
+Install: `make install` (once, installs package into `.venv`).
 Tests: `uv run pytest` → 41 passing
 
 ---
@@ -50,18 +51,18 @@ Seeded on every `uv run financials seed-db` or web server start:
 
 ### Web UI (`src/financials/web.py`)
 
-8 pages at `http://127.0.0.1:8765`:
+6 routes (some with alias paths) at `http://0.0.0.0:8000`:
 
 | Path | Page | Key content |
 |---|---|---|
-| `/` | Dashboard | Household net/income/expenses/savings; Alex, Charly, Flat summary cards |
+| `/` | Dashboard | Household net (employment + other income − expenses − savings); Alex, Charly, Housing summary cards |
 | `/alex` | Alex Income | Employment breakdown, pension %, RSU section, include-stock toggle |
-| `/charly` | Charly Income | **4-scenario comparison table** (None/Part-time/Full-time/Flexible): gross, pension, tax, NI, student loan, net/mo, nursery cost, net gain; Set active button |
-| `/flat` | Flat | Rent vs mortgage vs buildings insurance; fixed rate end date |
-| `/sale` | Flat Sale | Sale price form, full proceeds breakdown, quick range table |
-| `/purchase` | House Purchase | Price/deposit/rate form; affordability using Alex + Charly active gross; rate comparison; 7% stress test |
-| `/expenses` | Expenses & Income | All manual summaries sectioned by type with monthly totals; add + delete |
+| `/charly` | Charly Income | 4-scenario comparison table (None/Part-time/Full-time/Flexible); nursery toggle; active scenario card |
+| `/housing` | Housing | 3-tab: Current (living with family), Flat (live-in), House purchase; sale proceeds, mortgage calc, affordability, rate comparison, 7% stress test |
+| `/tracker` | Monthly Tracker | Grouped expense/income/saving rows, inline edit, stacked bar + group charts |
 | `/variables` | Variables | Every assumption editable, grouped by namespace |
+
+Dark mode toggle in header, preference persisted via `localStorage`.
 
 ---
 
@@ -80,31 +81,16 @@ Seeded on every `uv run financials seed-db` or web server start:
 
 ---
 
-## Gaps / next steps (prioritised)
+## Recently fixed
 
-### 1. Charly net → household income (broken link — high priority)
-`charly_weekly_hours` drives the `/charly` calculators but the Dashboard and Expenses household totals only read `manual_summary` rows. Charly's calculated net take-home never appears in the household income figure. Fix: wire `calculate_charly_income_for_scenario` into `calculate_mvp_summary` and add her net to household income.
+- **Dashboard net bug**: manual income (rental etc.) was excluded from "Monthly net" — now `total = employment + other_income − expenses − savings`
+- **Variables form bug**: `value_type` and `unit` inputs were outside `<form>` tag (split across `<td>`s), silently resetting type to "text" on every save — fixed using `form=` attribute
+- **Charly active scenario**: `next()` with no default raised `StopIteration` if `charly_weekly_hours` didn't match a scenario — fixed with fallback to `charly_active.net_monthly`
+- **Dark mode**: added toggle (header, localStorage), full CSS variable coverage including tracker group headers
+- **LAN access**: server now binds `0.0.0.0:8000` by default
+- **Dev UX**: `Makefile` with `make run` / `make start` / `make stop` / `make logs`; `make install` for one-time package install
 
-### 2. Savings model
-One pot each (Alex, Charly). Current balances → 12-month savings trajectory under each Charly scenario. Key question: "if Charly works full-time from September, how much do we have saved by end of 2026?"
-
-### 3. Alex student loan
-Likely Plan 1 (pre-2012, threshold ~£24,990, 9%). Not in income calculator yet. Possibly already repaid — needs confirming.
-
-### 4. Debt tracker
-MBNA/Barclaycard/Lloyds Credit outstanding balances (trending down in 2024 data). Current monthly repayments can be entered via Expenses but there's no balance/payoff-date model.
-
-### 5. RSU calculator (dynamic)
-Currently uses static `alex_stock_gross_annual`/`alex_stock_net_annual` from workbook. Need: vest quantity × $ORCL price × USD/GBP → gross GBP → net after tax withholding. September vest, updates with live or manually entered price.
-
-### 6. Edit manual summaries
-Currently add + delete only. Need inline edit so 2024 bill values can be corrected without delete + re-add.
-
-### 7. Scenario cloning
-Fork baseline into named scenarios (e.g. "charly-full-time-300k-sale") to compare them side by side.
-
-### 8. Monzo transaction importer
-Import `sheets/Monzo Transactions.xlsx` (2,223 rows) into `transaction_raw`. Classify by category; produce rolling 3-month spending averages. Most useful once back in own home and tracking live spending.
+## Gaps / next steps — see TASKS.md
 
 ---
 

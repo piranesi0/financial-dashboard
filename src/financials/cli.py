@@ -102,7 +102,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     web_parser = subparsers.add_parser("web")
     web_parser.add_argument("database", type=Path)
-    web_parser.add_argument("--host", default="127.0.0.1")
+    web_parser.add_argument("--host", default="0.0.0.0")
     web_parser.add_argument("--port", type=int, default=8000)
 
     return parser

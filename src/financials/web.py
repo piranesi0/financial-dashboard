@@ -116,8 +116,25 @@ def html_page(title: str, body: str, scenario: str, current_path: str = "/", mes
       --text: #0f172a; --muted: #64748b; --accent: #2563eb;
       --accent-dark: #1d4ed8; --green: #16a34a; --red: #dc2626;
       --amber: #d97706; --radius: 14px;
+      --surface-alt: #f8fafc; --highlight: #eff6ff;
+      --tag-income-bg: #dcfce7; --tag-income-fg: #166534;
+      --tag-expense-bg: #fee2e2; --tag-expense-fg: #991b1b;
+      --tag-saving-bg: #dbeafe; --tag-saving-fg: #1e40af;
+      --message-bg: #dcfce7; --message-fg: #166534; --message-border: #86efac;
       color-scheme: light;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }}
+    [data-theme="dark"] {{
+      --bg: #0f172a; --surface: #1e293b; --border: #334155;
+      --text: #f1f5f9; --muted: #94a3b8; --accent: #60a5fa;
+      --accent-dark: #3b82f6; --green: #4ade80; --red: #f87171;
+      --amber: #fbbf24;
+      --surface-alt: #1e293b; --highlight: #1e3a5f;
+      --tag-income-bg: #14532d; --tag-income-fg: #86efac;
+      --tag-expense-bg: #450a0a; --tag-expense-fg: #fca5a5;
+      --tag-saving-bg: #1e3a5f; --tag-saving-fg: #93c5fd;
+      --message-bg: #14532d; --message-fg: #86efac; --message-border: #166534;
+      color-scheme: dark;
     }}
     *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
     body {{ background: var(--bg); color: var(--text); min-height: 100vh; }}
@@ -146,13 +163,13 @@ def html_page(title: str, body: str, scenario: str, current_path: str = "/", mes
     .label {{ font-size: 13px; color: var(--muted); margin-top: 4px; }}
     table {{ width: 100%; border-collapse: collapse; }}
     th, td {{ border-bottom: 1px solid var(--border); padding: 10px 12px; text-align: left; font-size: 14px; }}
-    th {{ background: #f8fafc; color: var(--muted); font-size: 12px; font-weight: 700;
+    th {{ background: var(--surface-alt); color: var(--muted); font-size: 12px; font-weight: 700;
           text-transform: uppercase; letter-spacing: 0.04em; }}
     td.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
     th.num {{ text-align: right; }}
     tr:last-child td {{ border-bottom: none; }}
-    tr.total td {{ font-weight: 700; background: #f8fafc; }}
-    tr.highlight td {{ background: #eff6ff; font-weight: 700; }}
+    tr.total td {{ font-weight: 700; background: var(--surface-alt); }}
+    tr.highlight td {{ background: var(--highlight); font-weight: 700; }}
     input, select, textarea {{
       width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px;
       font: inherit; font-size: 14px; color: var(--text); background: var(--surface);
@@ -172,24 +189,24 @@ def html_page(title: str, body: str, scenario: str, current_path: str = "/", mes
     .btn-success {{ background: var(--green); }}
     .btn-success:hover {{ background: #15803d; }}
     .btn-ghost {{ background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }}
-    .btn-ghost:hover {{ background: #eff6ff; }}
+    .btn-ghost:hover {{ background: var(--highlight); }}
     .muted {{ color: var(--muted); font-size: 13px; }}
-    .message {{ background: #dcfce7; color: #166534; border: 1px solid #86efac;
+    .message {{ background: var(--message-bg); color: var(--message-fg); border: 1px solid var(--message-border);
                 padding: 12px 16px; border-radius: 10px; margin-bottom: 18px; font-size: 14px; }}
     .danger {{ color: var(--red); }}
     .divider {{ border: none; border-top: 1px solid var(--border); margin: 24px 0; }}
     .scenario-table {{ overflow-x: auto; }}
     .scenario-table table {{ min-width: 600px; }}
     .scenario-table th:not(:first-child), .scenario-table td:not(:first-child) {{ text-align: right; }}
-    .active-col td {{ background: #eff6ff !important; }}
+    .active-col td {{ background: var(--highlight) !important; }}
     .breakdown-row {{ display: flex; justify-content: space-between; padding: 8px 0;
                       border-bottom: 1px solid var(--border); font-size: 14px; }}
     .breakdown-row:last-child {{ border-bottom: none; font-weight: 700; }}
     .breakdown-row .amount {{ font-variant-numeric: tabular-nums; }}
     .tag {{ display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }}
-    .tag-income {{ background: #dcfce7; color: #166534; }}
-    .tag-expense {{ background: #fee2e2; color: #991b1b; }}
-    .tag-saving {{ background: #dbeafe; color: #1e40af; }}
+    .tag-income {{ background: var(--tag-income-bg); color: var(--tag-income-fg); }}
+    .tag-expense {{ background: var(--tag-expense-bg); color: var(--tag-expense-fg); }}
+    .tag-saving {{ background: var(--tag-saving-bg); color: var(--tag-saving-fg); }}
     .bar-chart {{ margin: 0; padding: 0; list-style: none; }}
     .bar-chart li {{ margin-bottom: 10px; }}
     .bar-chart .bar-label {{ display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 3px; }}
@@ -208,15 +225,37 @@ def html_page(title: str, body: str, scenario: str, current_path: str = "/", mes
       .grid-2, .grid-3 {{ grid-template-columns: 1fr; }}
       header {{ flex-wrap: wrap; height: auto; padding: 12px 16px; gap: 8px; }}
     }}
+    #theme-toggle {{
+      background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3);
+      padding: 5px 12px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }}
+    #theme-toggle:hover {{ background: rgba(255,255,255,0.25); }}
   </style>
+  <script>
+    (function() {{
+      var t = localStorage.getItem('theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+    }})();
+  </script>
 </head>
 <body>
   <header>
     <a class="brand" href="/?scenario={escaped_scenario}">💷 Financials</a>
     <nav>{nav_links}</nav>
     <span class="scenario-badge">Scenario: <strong>{escaped_scenario}</strong></span>
+    <button id="theme-toggle" onclick="
+      var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      this.textContent = next === 'dark' ? '☀ Light' : '☾ Dark';
+    "></button>
   </header>
   <main>{banner}{body}</main>
+  <script>
+    document.getElementById('theme-toggle').textContent =
+      document.documentElement.getAttribute('data-theme') === 'dark' ? '☀ Light' : '☾ Dark';
+  </script>
 </body>
 </html>"""
 
@@ -247,7 +286,9 @@ class FinancialsWebApp:
 
         alex_net = summary.alex_income.net_income_monthly
         charly_net = charly_active.net_monthly
-        household_income = alex_net + charly_net
+        employment_income = alex_net + charly_net
+        other_income = summary.household.monthly_income
+        household_income = employment_income + other_income
         monthly_expenses = summary.household.monthly_expenses
         monthly_savings = summary.household.monthly_savings
         monthly_net = household_income - monthly_expenses - monthly_savings
@@ -271,7 +312,7 @@ class FinancialsWebApp:
   </div>
   <div class="card">
     <div class="metric green">{fmt_money(household_income)}</div>
-    <div class="label">Household income (Alex + Charly)</div>
+    <div class="label">Total income (employment + other)</div>
   </div>
   <div class="card">
     <div class="metric red">{fmt_money(monthly_expenses)}</div>
@@ -400,7 +441,7 @@ class FinancialsWebApp:
         <div><button type="submit">Update</button></div>
       </div>
     </form>
-    {"<div style='margin-top:12px;padding:12px;background:#eff6ff;border-radius:10px'><strong>With RSU:</strong> " + fmt_money(result.net_income_monthly + stock_net_val / 12) + "/mo</div>" if include_stock_val != "true" else ""}
+    {"<div style='margin-top:12px;padding:12px;background:var(--highlight);border-radius:10px'><strong>With RSU:</strong> " + fmt_money(result.net_income_monthly + stock_net_val / 12) + "/mo</div>" if include_stock_val != "true" else ""}
   </div>
 </div>"""
         return html_page("Alex Income", body, scenario, "/alex", message)
@@ -544,7 +585,7 @@ class FinancialsWebApp:
   {nursery_calculator_html}
   <div class="card">
     <h2>Active scenario</h2>
-    <div class="metric {"green" if active_hours > 0 else "muted"}">{fmt_money(scenarios["none"].net_monthly if active_hours == 0 else next(r.net_monthly for r in scenarios.values() if r.weekly_hours == active_hours))}</div>
+    <div class="metric {"green" if active_hours > 0 else "muted"}">{fmt_money(scenarios["none"].net_monthly if active_hours == 0 else next((r.net_monthly for r in scenarios.values() if r.weekly_hours == active_hours), charly_active.net_monthly))}</div>
     <div class="label">Charly net / month at {active_hours} hrs/wk</div>
     <p class="muted" style="margin-top:12px">This feeds into the Dashboard and Purchase affordability. Click <strong>Set active</strong> in the table to switch scenario.</p>
   </div>
@@ -946,7 +987,7 @@ class FinancialsWebApp:
                 grand_total += group_total
                 colour = group_colour(gname)
 
-                html_parts.append(f'<tr class="total" style="background:#eef2ff"><td colspan="2" style="font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:{colour}"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{colour};margin-right:6px"></span>{escape(gname)}</td><td class="num" style="color:{colour}">{fmt_money(group_total)}</td><td colspan="3"></td></tr>')
+                html_parts.append(f'<tr class="total" style="background:var(--highlight)"><td colspan="2" style="font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:{colour}"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{colour};margin-right:6px"></span>{escape(gname)}</td><td class="num" style="color:{colour}">{fmt_money(group_total)}</td><td colspan="3"></td></tr>')
 
                 for i in gitems:
                     html_parts.append(f"""<tr>
@@ -1124,15 +1165,16 @@ class FinancialsWebApp:
 <tr>
   <td class="muted" style="font-size:12px">{escape(item.key)}</td>
   <td>
-    <form method="post" action="/variables?scenario={escape(scenario)}">
+    <form id="vf-{item.namespace}-{item.key}" method="post" action="/variables?scenario={escape(scenario)}">
       <input type="hidden" name="namespace" value="{escape(item.namespace)}">
       <input type="hidden" name="key" value="{escape(item.key)}">
       {variable_value_input(item)}
+    </form>
   </td>
-  <td><select name="value_type">{type_options(item.value_type)}</select></td>
-  <td><input name="unit" value="{escape(item.unit)}" style="width:80px"></td>
+  <td><select name="value_type" form="vf-{item.namespace}-{item.key}">{type_options(item.value_type)}</select></td>
+  <td><input name="unit" value="{escape(item.unit)}" form="vf-{item.namespace}-{item.key}" style="width:80px"></td>
   <td class="muted" style="font-size:11px">{escape(item.source)}</td>
-  <td><button type="submit" class="btn btn-sm">Save</button></form></td>
+  <td><button type="submit" class="btn btn-sm" form="vf-{item.namespace}-{item.key}">Save</button></td>
 </tr>""" for item in items)
             sections += f"""
 <div class="card" style="margin-bottom:16px">
@@ -1328,7 +1370,7 @@ def make_handler(app: FinancialsWebApp):
     return Handler
 
 
-def run_web_app(database: str | Path, host: str = "127.0.0.1", port: int = 8000) -> None:
+def run_web_app(database: str | Path, host: str = "0.0.0.0", port: int = 8000) -> None:
     database_path = Path(database)
     connection = initialise_database(database_path)
     upsert_baseline_scenario(connection)
@@ -1336,4 +1378,9 @@ def run_web_app(database: str | Path, host: str = "127.0.0.1", port: int = 8000)
     server = ThreadingHTTPServer((host, port), make_handler(FinancialsWebApp(database_path)))
     print(f"Financials web UI running at http://{host}:{port}")
     print(f"Database: {database_path}")
-    server.serve_forever()
+    print("Press Ctrl+C to stop.")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopped.")
+        server.server_close()

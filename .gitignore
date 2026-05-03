@@ -10,3 +10,5 @@ venv/
 *.db
 .env
 .DS_Store
+.server.pid
+.server.log
