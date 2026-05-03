@@ -22,6 +22,8 @@ class StaticIncomeInput:
     ni_upper_earnings_limit: Decimal
     ni_main_rate: Decimal
     ni_upper_rate: Decimal
+    student_loan_threshold: Decimal = Decimal("0")
+    student_loan_rate: Decimal = Decimal("0")
     stock_net_annual: Decimal = Decimal("0")
     include_stock_in_static_income: bool = False
 
@@ -35,6 +37,7 @@ class StaticIncomeResult:
     taxable_income_annual: Decimal
     income_tax_annual: Decimal
     national_insurance_annual: Decimal
+    student_loan_annual: Decimal
     stock_net_annual: Decimal
     net_income_annual: Decimal
     net_income_monthly: Decimal
@@ -67,8 +70,11 @@ def calculate_static_income(inputs: StaticIncomeInput) -> StaticIncomeResult:
     ni_upper = tax_band_amount(gross_employment_income, inputs.ni_upper_earnings_limit, None)
     national_insurance = money(ni_main * inputs.ni_main_rate + ni_upper * inputs.ni_upper_rate)
 
+    student_loan_repayable = max(Decimal("0"), gross_employment_income - inputs.student_loan_threshold)
+    student_loan = money(student_loan_repayable * inputs.student_loan_rate)
+
     stock_net = money(inputs.stock_net_annual if inputs.include_stock_in_static_income else Decimal("0"))
-    net_income = money(gross_employment_income - pension_contribution - income_tax - national_insurance + stock_net)
+    net_income = money(gross_employment_income - pension_contribution - income_tax - national_insurance - student_loan + stock_net)
     return StaticIncomeResult(
         base_salary_annual=money(inputs.base_salary_annual),
         select_income_annual=select_income,
@@ -77,6 +83,7 @@ def calculate_static_income(inputs: StaticIncomeInput) -> StaticIncomeResult:
         taxable_income_annual=taxable_income,
         income_tax_annual=income_tax,
         national_insurance_annual=national_insurance,
+        student_loan_annual=student_loan,
         stock_net_annual=stock_net,
         net_income_annual=net_income,
         net_income_monthly=money(net_income / Decimal("12")),

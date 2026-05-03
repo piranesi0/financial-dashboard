@@ -20,8 +20,8 @@ class MvpTest(unittest.TestCase):
         connection.close()
 
         self.assertEqual(result.gross_employment_income_annual, Decimal("59117.59"))
-        self.assertEqual(result.net_income_monthly, Decimal("3464.98"))
-        self.assertEqual(outputs["net_income_monthly"], "3464.98")
+        self.assertEqual(result.net_income_monthly, Decimal("3226.31"))
+        self.assertEqual(outputs["net_income_monthly"], "3226.31")
 
     def test_calculate_housing_for_scenario_uses_seeded_assumptions(self) -> None:
         connection = initialise_database(":memory:")
@@ -67,7 +67,7 @@ class MvpTest(unittest.TestCase):
         }
         connection.close()
 
-        self.assertEqual(result.alex_income.net_income_monthly, Decimal("3464.98"))
+        self.assertEqual(result.alex_income.net_income_monthly, Decimal("3226.31"))
         self.assertEqual(result.household.monthly_net, Decimal("-1289.04"))
         self.assertEqual(result.housing.affordability.high_max_purchase_price, Decimal("440000.00"))
         self.assertEqual(outputs["monthly_net"], "-1289.04")
