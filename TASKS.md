@@ -9,7 +9,13 @@ Next steps, roughly prioritised. Top items are actionable now; lower items need 
 > human added feedback
 
 ### 0. general feedback and improvements
-- certain bills like utilities need to be categorized to only be included in Flat/House, NOT current (bills included in current situation )
+- certain bills like utilities need to be categorized to only be included in Flat/House, NOT current (bills included in current situation). they might differ between future house and current flat, may need example/previous usage and inputting standing charge
+- easier input and edit for expenses - add/edit/delete sub category - maybe we need to work on category definitions. but if we had Bills > Utilities > Electric. think we need to delineate between bills that sre costs for living, recurring that are essential/committed like car finance, then household costs like groceries, shopping, subscritions, dining out etc.
+- maybe historical data to get estimate or range, could provide 
+- area for yearly expenses like car insurance pet insurance.
+- saving house purchase price should persist across windows.
+- admin panel, maybe action to update seed values with current state?
+- rsu, never needs to be included in net monthly. it would only ever be included in gross/net yearly.
 
 
 ### 1. Update seeded bill values to current figures
@@ -85,3 +91,16 @@ The Tracker table shows the raw `amount` (e.g. £2,000 yearly) rather than the m
 
 ### 11. Mobile layout
 The scenario comparison table on `/charly` overflows on small screens (5 columns). Either collapse to a scrollable card or add a responsive breakpoint to show only the active scenario column on mobile.
+
+### human longer term/ambitious
+Spending review, ability to look at each statement line item or expense tracker and mark as unnecessary/not essential. showing where costs can be cut.
+
+Deeper tax breakdown.
+Including select points tool, tax efficiecy of pension contributions, costs of selecting benefits. n.b. benefit points are awarded at year start: can be used for e.g. dental plan or taken as cash for £0.88/point.
+more detail is found in Pay and Stock sheet
+sliders/input/toggle for point selection, effect on gross monthly, tax percentage, monthly pension contributions 
+
+pension contribution and growth simulator/forecast
+
+granularity with alex job: adding prospective pay rise or job switch: effect on monthly/yearly income (where new job wouldn't use select points system) 
+
