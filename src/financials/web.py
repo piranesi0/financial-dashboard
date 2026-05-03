@@ -454,12 +454,13 @@ class FinancialsWebApp:
         conn = self.connection()
         try:
             scenarios = calculate_charly_all_scenarios(conn, scenario)
+            charly_active = calculate_charly_income_for_scenario(conn, scenario)
             nursery = calculate_nursery_for_scenario(conn, scenario)
             assumptions = get_assumptions(conn, scenario)
         finally:
             conn.close()
 
-        active_hours = Decimal(assumptions[("income", "charly_weekly_hours")].value) if ("income", "charly_weekly_hours") in assumptions else Decimal("0")
+        active_hours = charly_active.weekly_hours
         nursery_enabled = assumptions.get(("nursery", "enabled"))
         nursery_on = nursery_enabled is None or nursery_enabled.value.lower() == "true"
 
