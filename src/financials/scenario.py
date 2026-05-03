@@ -109,8 +109,12 @@ def assumption_int(assumptions: dict[tuple[str, str], AssumptionValue], namespac
     return int(assumption_text(assumptions, namespace, key))
 
 
-def assumption_bool(assumptions: dict[tuple[str, str], AssumptionValue], namespace: str, key: str) -> bool:
-    value = assumption_text(assumptions, namespace, key).strip().lower()
+def assumption_bool(assumptions: dict[tuple[str, str], AssumptionValue], namespace: str, key: str, *, default: bool | None = None) -> bool:
+    if (namespace, key) not in assumptions:
+        if default is not None:
+            return default
+        raise ValueError(f"Missing assumption: {namespace}.{key}")
+    value = assumptions[(namespace, key)].value.strip().lower()
     if value in {"true", "1", "yes", "y"}:
         return True
     if value in {"false", "0", "no", "n"}:

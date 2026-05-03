@@ -15,24 +15,52 @@ EXAMPLE_OUTGOING_PATH = PROJECT_ROOT / "sheets" / "example_outgoing.txt"
 
 # Fixed bills and income seeded from Finances 2024.xlsx structure.
 # Values are 2024 baselines — update them to current figures via the web UI.
-BILLS_AND_INCOME_SEED: list[tuple[str, str, str, str]] = [
-    # (scope, category, amount, frequency)
-    ("income", "Flat rental income", "1144.00", "monthly"),
-    ("expense", "Flat mortgage", "1124.10", "monthly"),
-    ("expense", "Flat buildings insurance", "28.55", "monthly"),
-    ("expense", "Car insurance", "51.14", "monthly"),
-    ("expense", "Car tax", "15.75", "monthly"),
-    ("expense", "Pet insurance", "31.41", "monthly"),
-    ("expense", "Petplan", "21.00", "monthly"),
-    ("expense", "Life insurance", "13.82", "monthly"),
-    ("expense", "Mobile phone", "39.67", "monthly"),
-    ("expense", "Gym", "36.00", "monthly"),
-    ("expense", "Spotify", "10.99", "monthly"),
-    ("expense", "Cloud storage", "8.57", "monthly"),
-    ("expense", "Runna", "15.99", "monthly"),
-    ("expense", "Ring doorbell", "4.99", "monthly"),
-    ("expense", "Lloyds Platinum", "16.00", "monthly"),
+BILLS_AND_INCOME_SEED: list[tuple[str, str, str, str, str]] = [
+    # (scope, category, amount, frequency, group_name)
+    # -- Flat (rented out) --
+    ("income", "Flat rental income", "1144.00", "monthly", "Flat"),
+    ("expense", "Flat mortgage", "1124.10", "monthly", "Flat"),
+    ("expense", "Flat buildings insurance", "28.55", "monthly", "Flat"),
+    # -- Household bills (current living situation) --
+    ("expense", "Council tax", "165.00", "monthly", "Bills"),
+    ("expense", "Water", "45.00", "monthly", "Bills"),
+    ("expense", "Gas & electric", "150.00", "monthly", "Bills"),
+    ("expense", "Broadband", "35.00", "monthly", "Bills"),
+    ("expense", "TV licence", "13.25", "monthly", "Bills"),
+    ("expense", "Home insurance", "25.00", "monthly", "Bills"),
+    # -- Personal bills --
+    ("expense", "Car insurance", "51.14", "monthly", "Bills"),
+    ("expense", "Car tax", "15.75", "monthly", "Bills"),
+    ("expense", "Pet insurance", "31.41", "monthly", "Bills"),
+    ("expense", "Petplan", "21.00", "monthly", "Bills"),
+    ("expense", "Life insurance", "13.82", "monthly", "Bills"),
+    ("expense", "Mobile phone", "39.67", "monthly", "Bills"),
+    ("expense", "Gym", "36.00", "monthly", "Personal"),
+    ("expense", "Spotify", "10.99", "monthly", "Bills"),
+    ("expense", "Cloud storage", "8.57", "monthly", "Bills"),
+    ("expense", "Runna", "15.99", "monthly", "Personal"),
+    ("expense", "Ring doorbell", "4.99", "monthly", "Bills"),
+    ("expense", "Lloyds Platinum", "16.00", "monthly", "Bills"),
 ]
+
+# Map example_outgoing categories to groups
+CATEGORY_GROUP_MAP: dict[str, str] = {
+    "Groceries": "Household",
+    "Shopping": "Household",
+    "Personal care": "Personal",
+    "Treats": "Personal",
+    "Eating out": "Personal",
+    "Entertainment": "Personal",
+    "Transport": "Bills",
+    "Subscriptions": "Bills",
+    "General": "Household",
+    "Charity": "Personal",
+    "Finances": "Bills",
+    "Holidays": "Household",
+    "Family": "Household",
+    "Cash": "Personal",
+    "Expenses": "Household",
+}
 
 
 def decimal_text(value: Decimal) -> str:
@@ -119,6 +147,7 @@ def baseline_assumptions() -> list[tuple[str, str, str, str, str]]:
         ("income", "charly_work_hours_part_time", decimal_text(income.charly_work_hours_part_time), "decimal", "hours/week"),
         ("income", "charly_work_hours_full_time", decimal_text(income.charly_work_hours_full_time), "decimal", "hours/week"),
         ("income", "charly_work_hours_flexible", decimal_text(income.charly_work_hours_flexible), "decimal", "hours/week"),
+        ("nursery", "enabled", str(nursery.enabled).lower(), "boolean", ""),
         ("nursery", "daily_cost", decimal_text(nursery.daily_cost), "money", "GBP/day"),
         ("nursery", "days_per_week", decimal_text(nursery.days_per_week), "decimal", "days"),
         ("nursery", "weekly_funded_hours", decimal_text(nursery.weekly_funded_hours), "decimal", "hours/week"),
@@ -181,12 +210,12 @@ def seed_bills_and_income(connection: sqlite3.Connection, scenario_name: str) ->
     )
     connection.executemany(
         """
-        INSERT INTO manual_summary (scenario_id, scope, category, amount, frequency, notes)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO manual_summary (scenario_id, scope, category, amount, frequency, notes, group_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         [
-            (scenario_id, scope, category, amount, frequency, f"{SEEDED_BILLS_NOTE_PREFIX}; 2024 value - update to current")
-            for scope, category, amount, frequency in BILLS_AND_INCOME_SEED
+            (scenario_id, scope, category, amount, frequency, f"{SEEDED_BILLS_NOTE_PREFIX}; 2024 value - update to current", group_name)
+            for scope, category, amount, frequency, group_name in BILLS_AND_INCOME_SEED
         ],
     )
 
@@ -200,11 +229,11 @@ def seed_example_outgoing_summaries(connection: sqlite3.Connection, scenario_nam
     rows = parse_example_outgoing()
     connection.executemany(
         """
-        INSERT INTO manual_summary (scenario_id, scope, category, amount, frequency, notes)
-        VALUES (?, 'expense', ?, ?, 'monthly', ?)
+        INSERT INTO manual_summary (scenario_id, scope, category, amount, frequency, notes, group_name)
+        VALUES (?, 'expense', ?, ?, 'monthly', ?, ?)
         """,
         [
-            (scenario_id, category, decimal_text(amount), f"{SEEDED_EXPENSE_NOTE_PREFIX}; count={count}")
+            (scenario_id, category, decimal_text(amount), f"{SEEDED_EXPENSE_NOTE_PREFIX}; count={count}", CATEGORY_GROUP_MAP.get(category, "Household"))
             for category, amount, count in rows
         ],
     )

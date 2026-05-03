@@ -74,6 +74,18 @@ def calculate_nursery_for_scenario(
     scenario_name: str,
 ) -> NurseryResult:
     assumptions = get_assumptions(connection, scenario_name)
+    enabled = assumption_bool(assumptions, "nursery", "enabled", default=True)
+    if not enabled:
+        zero = Decimal("0")
+        return NurseryResult(
+            days_per_week=assumption_decimal(assumptions, "nursery", "days_per_week"),
+            weekly_gross_cost=zero,
+            monthly_gross_cost=zero,
+            weekly_funded_hours_applied=zero,
+            monthly_funded_saving=zero,
+            monthly_net_cost=zero,
+            annual_net_cost=zero,
+        )
     return calculate_nursery(
         NurseryInput(
             days_per_week=assumption_decimal(assumptions, "nursery", "days_per_week"),

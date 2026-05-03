@@ -18,6 +18,7 @@ class ManualSummaryItem:
     amount: Decimal
     frequency: str
     notes: str = ""
+    group_name: str = ""
     id: int | None = None
 
 
@@ -50,14 +51,15 @@ def add_manual_summary(
     amount: Decimal,
     frequency: str,
     notes: str = "",
+    group_name: str = "",
 ) -> int:
     scenario_id = get_scenario_id(connection, scenario_name)
     cursor = connection.execute(
         """
-        INSERT INTO manual_summary (scenario_id, scope, category, amount, frequency, notes)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO manual_summary (scenario_id, scope, category, amount, frequency, notes, group_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (scenario_id, scope, category, str(amount), frequency, notes),
+        (scenario_id, scope, category, str(amount), frequency, notes, group_name),
     )
     connection.commit()
     return int(cursor.lastrowid)
@@ -67,10 +69,10 @@ def list_manual_summaries(connection: sqlite3.Connection, scenario_name: str) ->
     scenario_id = get_scenario_id(connection, scenario_name)
     rows = connection.execute(
         """
-        SELECT id, scope, category, amount, frequency, notes
+        SELECT id, scope, category, amount, frequency, notes, group_name
         FROM manual_summary
         WHERE scenario_id = ?
-        ORDER BY scope, category, id
+        ORDER BY scope, group_name, category, id
         """,
         (scenario_id,),
     ).fetchall()
@@ -81,10 +83,47 @@ def list_manual_summaries(connection: sqlite3.Connection, scenario_name: str) ->
             amount=Decimal(row["amount"]),
             frequency=row["frequency"],
             notes=row["notes"],
+            group_name=row["group_name"],
             id=row["id"],
         )
         for row in rows
     ]
+
+
+def update_manual_summary(
+    connection: sqlite3.Connection,
+    summary_id: int,
+    category: str | None = None,
+    amount: Decimal | None = None,
+    frequency: str | None = None,
+    notes: str | None = None,
+    group_name: str | None = None,
+) -> None:
+    updates: list[str] = []
+    params: list[object] = []
+    if category is not None:
+        updates.append("category = ?")
+        params.append(category)
+    if amount is not None:
+        updates.append("amount = ?")
+        params.append(str(amount))
+    if frequency is not None:
+        updates.append("frequency = ?")
+        params.append(frequency)
+    if notes is not None:
+        updates.append("notes = ?")
+        params.append(notes)
+    if group_name is not None:
+        updates.append("group_name = ?")
+        params.append(group_name)
+    if not updates:
+        return
+    params.append(summary_id)
+    connection.execute(
+        f"UPDATE manual_summary SET {', '.join(updates)} WHERE id = ?",
+        params,
+    )
+    connection.commit()
 
 
 def delete_manual_summary(connection: sqlite3.Connection, summary_id: int) -> None:

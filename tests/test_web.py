@@ -55,9 +55,9 @@ class WebTest(unittest.TestCase):
         html = self.app.render_summary("baseline")
 
         self.assertIn("Dashboard", html)
-        self.assertIn("Monthly income", html)
-        # setUp adds £4,000 salary; baseline seed adds £1,144 rent income → £5,144 total
-        self.assertIn("£5,144.00", html)
+        self.assertIn("Household income", html)
+        # Alex net income is £3,464.98
+        self.assertIn("£3,464.98", html)
 
 
     def test_delete_manual_summary_via_post(self) -> None:
@@ -69,7 +69,7 @@ class WebTest(unittest.TestCase):
         connection.close()
 
         target, message = self.app.handle_post(
-            "/manual-summaries",
+            "/tracker",
             "baseline",
             {"_action": ["delete"], "id": [str(entry_id)]},
         )
@@ -83,12 +83,12 @@ class WebTest(unittest.TestCase):
         ]
         connection.close()
 
-        self.assertEqual(target, "/expenses")
+        self.assertEqual(target, "/tracker")
         self.assertEqual(message, "Entry deleted.")
         self.assertNotIn("TestEntryUniqueABC", categories_after)
 
-    def test_render_expenses_shows_seeded_bills(self) -> None:
-        html = self.app.render_expenses("baseline")
+    def test_render_tracker_shows_seeded_bills(self) -> None:
+        html = self.app.render_tracker("baseline")
 
         self.assertIn("Flat rental income", html)
         self.assertIn("Flat mortgage", html)
@@ -110,24 +110,59 @@ class WebTest(unittest.TestCase):
         self.assertIn("Flexible", html)
         self.assertIn("Nursery", html)
 
-    def test_render_flat_shows_rent_and_mortgage(self) -> None:
-        html = self.app.render_flat("baseline")
+    def test_render_housing_current_shows_keep_in_place(self) -> None:
+        html = self.app.render_housing("baseline", tab="current")
 
-        self.assertIn("Flat", html)
+        self.assertIn("Housing", html)
+        self.assertIn("keep-in-place", html)
+        self.assertIn("£250.00", html)
         self.assertIn("£1,144.00", html)
 
-    def test_render_sale_shows_proceeds(self) -> None:
-        html = self.app.render_sale("baseline")
+    def test_render_housing_flat_shows_living_costs_and_sale(self) -> None:
+        html = self.app.render_housing("baseline", tab="flat")
 
-        self.assertIn("Flat Sale", html)
+        self.assertIn("Housing", html)
+        self.assertIn("Living in the flat", html)
+        self.assertIn("Total living cost", html)
+        self.assertIn("Council tax", html)
+        self.assertIn("Household bills", html)
         self.assertIn("Net proceeds", html)
+        self.assertIn("Sale proceeds", html)
+        self.assertNotIn("Rental income", html)
 
-    def test_render_purchase_shows_mortgage_and_affordability(self) -> None:
-        html = self.app.render_purchase("baseline")
+    def test_render_housing_house_shows_mortgage_and_affordability(self) -> None:
+        html = self.app.render_housing("baseline", tab="house")
 
         self.assertIn("House Purchase", html)
         self.assertIn("Monthly payment", html)
         self.assertIn("Combined gross", html)
+        self.assertIn("Council tax", html)
+        self.assertIn("Household bills", html)
+        self.assertIn("Total living cost", html)
+
+    def test_update_manual_summary_via_post(self) -> None:
+        connection = connect_database(self.database)
+        add_manual_summary(connection, "baseline", "expense", "OldCategory", Decimal("50"), "monthly", group_name="Bills")
+        entry_id = connection.execute(
+            "SELECT id FROM manual_summary WHERE category='OldCategory'"
+        ).fetchone()["id"]
+        connection.close()
+
+        target, message = self.app.handle_post(
+            "/tracker",
+            "baseline",
+            {"_action": ["update"], "id": [str(entry_id)], "category": ["NewCategory"], "amount": ["75"], "group_name": ["Household"]},
+        )
+
+        connection = connect_database(self.database)
+        row = connection.execute("SELECT category, amount, group_name FROM manual_summary WHERE id = ?", (entry_id,)).fetchone()
+        connection.close()
+
+        self.assertEqual(target, "/tracker")
+        self.assertEqual(message, "Entry updated.")
+        self.assertEqual(row["category"], "NewCategory")
+        self.assertEqual(row["amount"], "75")
+        self.assertEqual(row["group_name"], "Household")
 
     def test_set_charly_hours_via_post(self) -> None:
         target, message = self.app.handle_post(
@@ -143,6 +178,36 @@ class WebTest(unittest.TestCase):
         self.assertEqual(target, "/charly")
         self.assertIn("37.5", message)
         self.assertEqual(assumptions[("income", "charly_weekly_hours")].value, "37.5")
+
+
+    def test_toggle_nursery_via_post(self) -> None:
+        target, message = self.app.handle_post(
+            "/charly",
+            "baseline",
+            {"_action": ["toggle_nursery"], "enabled": ["false"]},
+        )
+        connection = connect_database(self.database)
+        from financials.scenario import get_assumptions, assumption_bool
+        assumptions = get_assumptions(connection, "baseline")
+        connection.close()
+
+        self.assertEqual(target, "/charly")
+        self.assertIn("disabled", message)
+        self.assertFalse(assumption_bool(assumptions, "nursery", "enabled"))
+
+    def test_nursery_disabled_zeroes_costs_on_charly_page(self) -> None:
+        self.app.handle_post(
+            "/charly", "baseline",
+            {"_action": ["toggle_nursery"], "enabled": ["false"]},
+        )
+        html = self.app.render_charly("baseline")
+        self.assertIn("Disabled", html)
+        self.assertIn("disabled", html)
+
+    def test_nursery_enabled_shows_calculator(self) -> None:
+        html = self.app.render_charly("baseline")
+        self.assertIn("Nursery calculator", html)
+        self.assertIn("Enabled", html)
 
 
 if __name__ == "__main__":

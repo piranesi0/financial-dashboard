@@ -25,6 +25,7 @@ class HousingDefaults:
 
 @dataclass(frozen=True)
 class NurseryDefaults:
+    enabled: bool = True
     daily_cost: Decimal = Decimal("70.00")
     days_per_week: Decimal = Decimal("3")
     weekly_funded_hours: Decimal = Decimal("15")

@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS manual_summary (
     category TEXT NOT NULL,
     amount TEXT NOT NULL,
     frequency TEXT NOT NULL,
-    notes TEXT NOT NULL DEFAULT ''
+    notes TEXT NOT NULL DEFAULT '',
+    group_name TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS transaction_raw (
@@ -102,5 +103,11 @@ def initialise_database(path: str | Path) -> sqlite3.Connection:
     }
     if "value_type" not in columns:
         connection.execute("ALTER TABLE assumption ADD COLUMN value_type TEXT NOT NULL DEFAULT 'text'")
+    ms_columns = {
+        row["name"]
+        for row in connection.execute("PRAGMA table_info(manual_summary)").fetchall()
+    }
+    if "group_name" not in ms_columns:
+        connection.execute("ALTER TABLE manual_summary ADD COLUMN group_name TEXT NOT NULL DEFAULT ''")
     connection.commit()
     return connection

@@ -19,7 +19,7 @@ from financials.mvp import (
 from financials.scenario import get_assumptions, list_scenarios, set_assumption
 from financials.schema import connect_database, initialise_database
 from financials.seeds import upsert_baseline_scenario
-from financials.summaries import add_manual_summary, delete_manual_summary, list_manual_summaries
+from financials.summaries import add_manual_summary, delete_manual_summary, list_manual_summaries, monthly_amount, update_manual_summary
 
 
 # ---------------------------------------------------------------------------
@@ -89,10 +89,8 @@ _NAV_LINKS = [
     ("/", "Dashboard"),
     ("/alex", "Alex"),
     ("/charly", "Charly"),
-    ("/flat", "Flat"),
-    ("/sale", "Sale"),
-    ("/purchase", "Purchase"),
-    ("/expenses", "Expenses"),
+    ("/housing", "Housing"),
+    ("/tracker", "Tracker"),
     ("/variables", "Variables"),
 ]
 
@@ -192,6 +190,20 @@ def html_page(title: str, body: str, scenario: str, current_path: str = "/", mes
     .tag-income {{ background: #dcfce7; color: #166534; }}
     .tag-expense {{ background: #fee2e2; color: #991b1b; }}
     .tag-saving {{ background: #dbeafe; color: #1e40af; }}
+    .bar-chart {{ margin: 0; padding: 0; list-style: none; }}
+    .bar-chart li {{ margin-bottom: 10px; }}
+    .bar-chart .bar-label {{ display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 3px; }}
+    .bar-chart .bar-label .bar-amount {{ color: var(--muted); font-variant-numeric: tabular-nums; }}
+    .bar-track {{ background: var(--border); border-radius: 6px; height: 22px; overflow: hidden; position: relative; }}
+    .bar-fill {{ height: 100%; border-radius: 6px; min-width: 2px; transition: width 0.3s; display: flex; align-items: center; padding-left: 8px; }}
+    .bar-fill span {{ font-size: 11px; font-weight: 700; color: white; white-space: nowrap; }}
+    .bar-pct {{ position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 600; color: var(--muted); }}
+    .stacked-bar {{ display: flex; height: 32px; border-radius: 8px; overflow: hidden; margin-bottom: 8px; }}
+    .stacked-bar div {{ height: 100%; display: flex; align-items: center; justify-content: center;
+                        font-size: 11px; font-weight: 700; color: white; min-width: 0; }}
+    .legend {{ display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; }}
+    .legend-item {{ display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }}
+    .legend-dot {{ width: 10px; height: 10px; border-radius: 50%; }}
     @media (max-width: 768px) {{
       .grid-2, .grid-3 {{ grid-template-columns: 1fr; }}
       header {{ flex-wrap: wrap; height: auto; padding: 12px 16px; gap: 8px; }}
@@ -233,8 +245,13 @@ class FinancialsWebApp:
         finally:
             conn.close()
 
-        net = summary.household.monthly_net
-        net_class = "green" if net >= 0 else "red"
+        alex_net = summary.alex_income.net_income_monthly
+        charly_net = charly_active.net_monthly
+        household_income = alex_net + charly_net
+        monthly_expenses = summary.household.monthly_expenses
+        monthly_savings = summary.household.monthly_savings
+        monthly_net = household_income - monthly_expenses - monthly_savings
+        net_class = "green" if monthly_net >= 0 else "red"
         scenario_options = "".join(
             f'<option value="{escape(r["name"])}" {"selected" if r["name"] == scenario else ""}>{escape(r["name"])}</option>'
             for r in scenarios
@@ -249,27 +266,27 @@ class FinancialsWebApp:
 </div>
 <div class="grid">
   <div class="card">
-    <div class="metric {net_class}">{fmt_money(net)}</div>
+    <div class="metric {net_class}">{fmt_money(monthly_net)}</div>
     <div class="label">Monthly net (household)</div>
   </div>
   <div class="card">
-    <div class="metric">{fmt_money(summary.household.monthly_income)}</div>
-    <div class="label">Monthly income</div>
+    <div class="metric green">{fmt_money(household_income)}</div>
+    <div class="label">Household income (Alex + Charly)</div>
   </div>
   <div class="card">
-    <div class="metric">{fmt_money(summary.household.monthly_expenses)}</div>
+    <div class="metric red">{fmt_money(monthly_expenses)}</div>
     <div class="label">Monthly expenses</div>
   </div>
   <div class="card">
-    <div class="metric">{fmt_money(summary.household.monthly_savings)}</div>
+    <div class="metric">{fmt_money(monthly_savings)}</div>
     <div class="label">Monthly savings</div>
   </div>
 </div>
 <div class="grid">
   <div class="card">
     <h3>Alex</h3>
-    <div class="metric">{fmt_money(summary.alex_income.net_income_monthly)}</div>
-    <div class="label">Net / month</div>
+    <div class="metric">{fmt_money(alex_net)}</div>
+    <div class="label">Net / month (primary income)</div>
     <hr class="divider" style="margin:12px 0">
     <div class="muted">Gross employment: {fmt_money(summary.alex_income.gross_employment_income_annual)}/yr</div>
     <div class="muted">Pension: {fmt_money(summary.alex_income.pension_contribution_annual)}/yr</div>
@@ -278,7 +295,7 @@ class FinancialsWebApp:
   </div>
   <div class="card">
     <h3>Charly</h3>
-    <div class="metric {"green" if charly_active.net_monthly > 0 else "muted"}">{fmt_money(charly_active.net_monthly)}</div>
+    <div class="metric {"green" if charly_net > 0 else "muted"}">{fmt_money(charly_net)}</div>
     <div class="label">Net / month ({charly_active.weekly_hours} hrs/week)</div>
     <hr class="divider" style="margin:12px 0">
     <div class="muted">Gross: {fmt_money(charly_active.gross_monthly)}/mo</div>
@@ -287,14 +304,14 @@ class FinancialsWebApp:
     <a href="/charly?scenario={escape(scenario)}" class="btn btn-ghost btn-sm" style="margin-top:12px">Scenarios →</a>
   </div>
   <div class="card">
-    <h3>Flat</h3>
+    <h3>Housing</h3>
     <div class="metric">{fmt_money(summary.housing.flat_sale.net_proceeds)}</div>
-    <div class="label">Net sale proceeds</div>
+    <div class="label">Flat sale net proceeds</div>
     <hr class="divider" style="margin:12px 0">
-    <div class="muted">Mortgage: {fmt_money(summary.housing.mortgage.monthly_payment)}/mo (new house)</div>
+    <div class="muted">New house mortgage: {fmt_money(summary.housing.mortgage.monthly_payment)}/mo</div>
     <div class="muted">Afford 4x: {fmt_money(summary.housing.affordability.low_max_purchase_price)}</div>
     <div class="muted">Afford 4.5x: {fmt_money(summary.housing.affordability.high_max_purchase_price)}</div>
-    <a href="/flat?scenario={escape(scenario)}" class="btn btn-ghost btn-sm" style="margin-top:12px">Flat details →</a>
+    <a href="/housing?scenario={escape(scenario)}" class="btn btn-ghost btn-sm" style="margin-top:12px">Housing details →</a>
   </div>
 </div>"""
         return html_page("Dashboard", body, scenario, "/", message)
@@ -402,6 +419,8 @@ class FinancialsWebApp:
             conn.close()
 
         active_hours = Decimal(assumptions[("income", "charly_weekly_hours")].value) if ("income", "charly_weekly_hours") in assumptions else Decimal("0")
+        nursery_enabled = assumptions.get(("nursery", "enabled"))
+        nursery_on = nursery_enabled is None or nursery_enabled.value.lower() == "true"
 
         cols = [
             ("none", "None", "0 hrs/wk"),
@@ -423,15 +442,16 @@ class FinancialsWebApp:
             )
             return f"<tr><td>{row_label}</td>{cells}</tr>"
 
+        nursery_cost_for_col = nursery.monthly_net_cost if nursery_on else Decimal("0")
         nursery_row_html = "".join(
             f'<td class="num {col_class(label)}">'
-            f'{"—" if scenarios[label].weekly_hours == 0 else fmt_money(nursery.monthly_net_cost)}'
+            f'{"—" if scenarios[label].weekly_hours == 0 else (fmt_money(nursery_cost_for_col) if nursery_on else "<span class=muted>disabled</span>")}'
             f'</td>'
             for label, _, _ in cols
         )
         net_gain_row = "".join(
             f'<td class="num {col_class(label)}" style="font-weight:700">'
-            f'{"—" if scenarios[label].weekly_hours == 0 else fmt_money(scenarios[label].net_monthly - nursery.monthly_net_cost)}'
+            f'{"—" if scenarios[label].weekly_hours == 0 else fmt_money(scenarios[label].net_monthly - nursery_cost_for_col)}'
             f'</td>'
             for label, _, _ in cols
         )
@@ -452,8 +472,50 @@ class FinancialsWebApp:
             for label, name, hrs in cols
         )
 
+        nursery_toggle_label = "Disable" if nursery_on else "Enable"
+        nursery_toggle_value = "false" if nursery_on else "true"
+        nursery_toggle_class = "btn-danger" if nursery_on else "btn-success"
+        nursery_status = f'<span class="tag tag-income">Enabled</span>' if nursery_on else '<span class="tag tag-expense">Disabled</span>'
+
+        nursery_toggle_btn = f"""
+<form method="post" action="/charly?scenario={escape(scenario)}" style="display:inline">
+  <input type="hidden" name="_action" value="toggle_nursery">
+  <input type="hidden" name="enabled" value="{nursery_toggle_value}">
+  <button type="submit" class="btn btn-sm {nursery_toggle_class}">{nursery_toggle_label} nursery costs</button>
+</form>"""
+
+        nursery_calculator_html = ""
+        if nursery_on:
+            nursery_calculator_html = f"""
+  <div class="card">
+    <h2>Nursery calculator</h2>
+    <table>
+      <tbody>
+        <tr><td>Days / week</td><td class="num">{nursery.days_per_week}</td></tr>
+        <tr><td>Daily cost</td><td class="num">{fmt_money(Decimal(assumptions[("nursery","daily_cost")].value))}</td></tr>
+        <tr><td>Gross monthly</td><td class="num">{fmt_money(nursery.monthly_gross_cost)}</td></tr>
+        <tr><td>Funded hours / week</td><td class="num">{nursery.weekly_funded_hours_applied} hrs</td></tr>
+        <tr><td>Funded saving / month</td><td class="num">−{fmt_money(nursery.monthly_funded_saving)}</td></tr>
+        <tr class="total"><td>Net nursery / month</td><td class="num">{fmt_money(nursery.monthly_net_cost)}</td></tr>
+        <tr><td>Net nursery / year</td><td class="num">{fmt_money(nursery.annual_net_cost)}</td></tr>
+      </tbody>
+    </table>
+    <p class="muted" style="margin-top:12px">Funded hours apply during term time only (~38 weeks/year). Update assumptions via <a href="/variables?scenario={escape(scenario)}">Variables</a>.</p>
+  </div>"""
+        else:
+            nursery_calculator_html = f"""
+  <div class="card">
+    <h2>Nursery costs {nursery_status}</h2>
+    <p class="muted">Nursery costs are currently excluded from calculations. Click the button below to include them.</p>
+    <div style="margin-top:12px">{nursery_toggle_btn}</div>
+  </div>"""
+
         body = f"""
 <h1>Charly Income</h1>
+<div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:12px;padding:14px 20px">
+  <span style="font-weight:700">Nursery costs</span> {nursery_status}
+  <span style="margin-left:auto">{nursery_toggle_btn}</span>
+</div>
 <div class="scenario-table card" style="margin-bottom:20px">
   <h2>Work scenarios — £{float(assumptions[("income","charly_hourly_rate")].value):.2f}/hr</h2>
   <table>
@@ -479,21 +541,7 @@ class FinancialsWebApp:
   </table>
 </div>
 <div class="grid-2">
-  <div class="card">
-    <h2>Nursery calculator</h2>
-    <table>
-      <tbody>
-        <tr><td>Days / week</td><td class="num">{nursery.days_per_week}</td></tr>
-        <tr><td>Daily cost</td><td class="num">{fmt_money(Decimal(assumptions[("nursery","daily_cost")].value))}</td></tr>
-        <tr><td>Gross monthly</td><td class="num">{fmt_money(nursery.monthly_gross_cost)}</td></tr>
-        <tr><td>Funded hours / week</td><td class="num">{nursery.weekly_funded_hours_applied} hrs</td></tr>
-        <tr><td>Funded saving / month</td><td class="num">−{fmt_money(nursery.monthly_funded_saving)}</td></tr>
-        <tr class="total"><td>Net nursery / month</td><td class="num">{fmt_money(nursery.monthly_net_cost)}</td></tr>
-        <tr><td>Net nursery / year</td><td class="num">{fmt_money(nursery.annual_net_cost)}</td></tr>
-      </tbody>
-    </table>
-    <p class="muted" style="margin-top:12px">Funded hours apply during term time only (~38 weeks/year). Update assumptions via <a href="/variables?scenario={escape(scenario)}">Variables</a>.</p>
-  </div>
+  {nursery_calculator_html}
   <div class="card">
     <h2>Active scenario</h2>
     <div class="metric {"green" if active_hours > 0 else "muted"}">{fmt_money(scenarios["none"].net_monthly if active_hours == 0 else next(r.net_monthly for r in scenarios.values() if r.weekly_hours == active_hours))}</div>
@@ -504,214 +552,236 @@ class FinancialsWebApp:
         return html_page("Charly Income", body, scenario, "/charly", message)
 
     # -----------------------------------------------------------------------
-    # Flat
+    # Housing (unified: Current / Flat / House tabs)
     # -----------------------------------------------------------------------
 
-    def render_flat(self, scenario: str, message: str = "") -> str:
+    def render_housing(self, scenario: str, tab: str = "current",
+                       sale_price: Decimal | None = None,
+                       house_price: Decimal | None = None,
+                       deposit_rate: Decimal | None = None,
+                       mortgage_rate: Decimal | None = None,
+                       message: str = "") -> str:
+        from financials.calculators.housing import MortgageInput, calculate_repayment_mortgage
         conn = self.connection()
         try:
             assumptions = get_assumptions(conn, scenario)
             summaries = list_manual_summaries(conn, scenario)
+            alex_income = calculate_alex_static_income_for_scenario(conn, scenario)
+            charly_active = calculate_charly_income_for_scenario(conn, scenario)
+            combined_gross = alex_income.gross_employment_income_annual + charly_active.gross_annual
+            housing = calculate_housing_for_scenario(
+                conn, scenario,
+                sale_price=sale_price,
+                house_price=house_price,
+                deposit_rate=deposit_rate,
+                mortgage_rate=mortgage_rate,
+                combined_gross_income=combined_gross,
+            )
         finally:
             conn.close()
 
         rent = Decimal(assumptions[("housing", "current_rent_income")].value) if ("housing", "current_rent_income") in assumptions else Decimal("0")
-        mortgage_pmt = Decimal(assumptions[("housing", "current_mortgage_payment")].value) if ("housing", "current_mortgage_payment") in assumptions else Decimal("0")
+        flat_mortgage_pmt = Decimal(assumptions[("housing", "current_mortgage_payment")].value) if ("housing", "current_mortgage_payment") in assumptions else Decimal("0")
         balance = Decimal(assumptions[("housing", "flat_mortgage_balance")].value) if ("housing", "flat_mortgage_balance") in assumptions else Decimal("0")
         buildings_ins = next((Decimal(i.amount) for i in summaries if "buildings insurance" in i.category.lower()), Decimal("28.55"))
-        flat_net = rent - mortgage_pmt - buildings_ins
 
-        body = f"""
-<h1>Flat</h1>
-<p class="muted" style="margin-bottom:20px">Current situation: flat let to tenants at £{rent:,.2f}/mo. Tenants pay utilities. Flat sale planned — <a href="/sale?scenario={escape(scenario)}">see Sale page</a>.</p>
+        # Household bills that apply when living independently (flat or house)
+        HOUSEHOLD_BILL_CATEGORIES = {"council tax", "water", "gas & electric", "broadband", "tv licence", "home insurance"}
+        household_bills: list[tuple[str, Decimal]] = []
+        for i in summaries:
+            if i.scope == "expense" and i.category.lower() in HOUSEHOLD_BILL_CATEGORIES:
+                household_bills.append((i.category, monthly_amount(Decimal(str(i.amount)), i.frequency)))
+        household_bills.sort(key=lambda x: x[1], reverse=True)
+        household_bills_total = sum(amt for _, amt in household_bills)
+
+        keep_in_place = Decimal("250")
+        current_housing_cost = keep_in_place
+        flat_housing_cost = flat_mortgage_pmt + buildings_ins
+        flat_net = rent - flat_housing_cost
+
+        sale_price_low = Decimal(assumptions[("housing", "flat_sale_price_low")].value)
+        sale_price_high = Decimal(assumptions[("housing", "flat_sale_price_high")].value)
+        agent_rate = Decimal(assumptions[("housing", "estate_agent_fee_rate")].value)
+        sol_fee = Decimal(assumptions[("housing", "solicitor_fee")].value)
+
+        price_low = Decimal(assumptions[("housing", "house_price_low")].value)
+        price_high = Decimal(assumptions[("housing", "house_price_high")].value)
+        resolved_house_price = house_price or price_low
+        resolved_rate = mortgage_rate or Decimal(assumptions[("housing", "default_mortgage_rate")].value)
+        resolved_deposit = deposit_rate or Decimal(assumptions[("housing", "default_deposit_rate")].value)
+        resolved_sale_price = sale_price or sale_price_low
+
+        rate_options = [Decimal("0.035"), Decimal("0.04"), Decimal("0.045"), Decimal("0.05"), Decimal("0.055"), Decimal("0.06")]
+        alex_gross = alex_income.gross_employment_income_annual
+        charly_gross = charly_active.gross_annual
+        a = housing.affordability
+        m = housing.mortgage
+        r = housing.flat_sale
+
+        # Reusable bills breakdown for flat / house tabs
+        bills_rows_html = "".join(
+            f'<tr><td>{escape(cat)}</td><td class="num" style="color:var(--red)">−{fmt_money(amt)}/mo</td></tr>'
+            for cat, amt in household_bills
+        )
+        bills_section_html = f"""
+<div class="card" style="margin-bottom:20px">
+  <h2>Household bills</h2>
+  <table>
+    <tbody>
+      {bills_rows_html}
+      <tr class="highlight"><td>Total bills</td><td class="num" style="color:var(--red)">−{fmt_money(household_bills_total)}/mo</td></tr>
+    </tbody>
+  </table>
+  <p class="muted" style="margin-top:8px">Edit amounts on the <a href="/tracker?scenario={escape(scenario)}">Tracker</a> page.</p>
+</div>"""
+
+        def tab_class(t: str) -> str:
+            return "active" if t == tab else ""
+
+        tab_bar = f"""
+<div style="display:flex;gap:4px;margin-bottom:20px">
+  <a href="/housing?scenario={escape(scenario)}&tab=current" class="btn btn-sm {"btn" if tab == "current" else "btn-ghost"}">Current</a>
+  <a href="/housing?scenario={escape(scenario)}&tab=flat" class="btn btn-sm {"btn" if tab == "flat" else "btn-ghost"}">Flat</a>
+  <a href="/housing?scenario={escape(scenario)}&tab=house" class="btn btn-sm {"btn" if tab == "house" else "btn-ghost"}">House</a>
+</div>"""
+
+        if tab == "current":
+            body = f"""
+<h1>Housing — Current</h1>
+{tab_bar}
+<p class="muted" style="margin-bottom:20px">Living with family. No mortgage — £{keep_in_place:,.0f}/mo keep-in-place contribution. Flat is let to tenants generating rental income.</p>
 <div class="grid">
   <div class="card">
+    <div class="metric amber">{fmt_money(current_housing_cost)}</div>
+    <div class="label">Monthly housing cost (keep-in-place)</div>
+  </div>
+  <div class="card">
     <div class="metric green">{fmt_money(rent)}</div>
-    <div class="label">Rent income / month</div>
+    <div class="label">Flat rental income / month</div>
   </div>
   <div class="card">
-    <div class="metric amber">{fmt_money(mortgage_pmt)}</div>
-    <div class="label">Mortgage payment / month</div>
-  </div>
-  <div class="card">
-    <div class="metric">{fmt_money(buildings_ins)}</div>
-    <div class="label">Buildings insurance / month</div>
+    <div class="metric amber">{fmt_money(flat_housing_cost)}</div>
+    <div class="label">Flat costs (mortgage + insurance)</div>
   </div>
   <div class="card">
     <div class="metric {"green" if flat_net >= 0 else "red"}">{fmt_money(flat_net)}</div>
     <div class="label">Net from flat / month</div>
   </div>
 </div>
-<div class="grid-2">
-  <div class="card">
-    <h2>Monthly breakdown</h2>
-    <div class="breakdown-row"><span>Rent income</span><span class="amount" style="color:var(--green)">+{fmt_money(rent)}</span></div>
-    <div class="breakdown-row"><span>Mortgage payment</span><span class="amount" style="color:var(--red)">−{fmt_money(mortgage_pmt)}</span></div>
-    <div class="breakdown-row"><span>Buildings insurance</span><span class="amount" style="color:var(--red)">−{fmt_money(buildings_ins)}</span></div>
-    <div class="breakdown-row"><span>Net</span><span class="amount" style="color:{"var(--green)" if flat_net >= 0 else "var(--red)"}">{fmt_money(flat_net)}</span></div>
-  </div>
-  <div class="card">
-    <h2>Mortgage info</h2>
-    <table>
-      <tbody>
-        <tr><td>Outstanding balance</td><td class="num">{fmt_money(balance)}</td></tr>
-        <tr><td>Monthly payment</td><td class="num">{fmt_money(mortgage_pmt)}</td></tr>
-        <tr><td>Fixed rate ends</td><td class="num">July 2027</td></tr>
-        <tr><td>Planned sale</td><td class="num">June 2026</td></tr>
-      </tbody>
-    </table>
-    <p class="muted" style="margin-top:12px">Fixed rate mortgage renews at higher rate in July 2027 — sale target is June 2026 ahead of this.</p>
-    <a href="/sale?scenario={escape(scenario)}" class="btn btn-sm" style="margin-top:12px">Calculate sale proceeds →</a>
-  </div>
+<div class="card">
+  <h2>Summary</h2>
+  <table>
+    <tbody>
+      <tr><td>Keep-in-place contribution</td><td class="num" style="color:var(--red)">−{fmt_money(keep_in_place)}/mo</td></tr>
+      <tr><td>Flat rental income</td><td class="num" style="color:var(--green)">+{fmt_money(rent)}/mo</td></tr>
+      <tr><td>Flat mortgage</td><td class="num" style="color:var(--red)">−{fmt_money(flat_mortgage_pmt)}/mo</td></tr>
+      <tr><td>Flat buildings insurance</td><td class="num" style="color:var(--red)">−{fmt_money(buildings_ins)}/mo</td></tr>
+      <tr class="highlight"><td>Net housing position</td><td class="num">{fmt_money(rent - flat_housing_cost - keep_in_place)}/mo</td></tr>
+    </tbody>
+  </table>
 </div>"""
-        return html_page("Flat", body, scenario, "/flat", message)
 
-    # -----------------------------------------------------------------------
-    # Sale
-    # -----------------------------------------------------------------------
-
-    def render_sale(self, scenario: str, sale_price_override: Decimal | None = None, message: str = "") -> str:
-        conn = self.connection()
-        try:
-            assumptions = get_assumptions(conn, scenario)
-            housing = calculate_housing_for_scenario(conn, scenario, sale_price=sale_price_override)
-        finally:
-            conn.close()
-
-        sale_price_low = Decimal(assumptions[("housing", "flat_sale_price_low")].value)
-        sale_price_high = Decimal(assumptions[("housing", "flat_sale_price_high")].value)
-        agent_rate = Decimal(assumptions[("housing", "flat_sale_price_low")].value) if False else Decimal(assumptions[("housing", "estate_agent_fee_rate")].value)
-        sol_fee = Decimal(assumptions[("housing", "solicitor_fee")].value)
-        balance = Decimal(assumptions[("housing", "flat_mortgage_balance")].value)
-        r = housing.flat_sale
-        sale_price_input = sale_price_override or sale_price_low
-
-        body = f"""
-<h1>Flat Sale</h1>
+        elif tab == "flat":
+            flat_living_cost = flat_mortgage_pmt + buildings_ins + household_bills_total
+            body = f"""
+<h1>Housing — Flat</h1>
+{tab_bar}
+<p class="muted" style="margin-bottom:20px">Living in the flat with existing mortgage. Outstanding balance: {fmt_money(balance)}. No rental income in this scenario.</p>
+<div class="grid">
+  <div class="card">
+    <div class="metric amber">{fmt_money(flat_mortgage_pmt)}</div>
+    <div class="label">Mortgage / month</div>
+  </div>
+  <div class="card">
+    <div class="metric">{fmt_money(buildings_ins)}</div>
+    <div class="label">Buildings insurance / month</div>
+  </div>
+  <div class="card">
+    <div class="metric amber">{fmt_money(household_bills_total)}</div>
+    <div class="label">Household bills / month</div>
+  </div>
+  <div class="card">
+    <div class="metric red">{fmt_money(flat_living_cost)}</div>
+    <div class="label">Total living cost / month</div>
+  </div>
+</div>
 <div class="card" style="margin-bottom:20px">
-  <form method="get" action="/sale">
-    <input type="hidden" name="scenario" value="{escape(scenario)}">
-    <div class="form-row">
-      <div>
-        <label>Sale price (range: {fmt_money(sale_price_low)} – {fmt_money(sale_price_high)})</label>
-        <input name="sale_price" type="number" step="1000" value="{sale_price_input}" placeholder="{sale_price_low}">
-      </div>
-      <div><label>&nbsp;</label><button type="submit">Calculate</button></div>
-    </div>
-  </form>
+  <h2>Monthly costs</h2>
+  <table>
+    <tbody>
+      <tr><td>Mortgage</td><td class="num" style="color:var(--red)">−{fmt_money(flat_mortgage_pmt)}/mo</td></tr>
+      <tr><td>Buildings insurance</td><td class="num" style="color:var(--red)">−{fmt_money(buildings_ins)}/mo</td></tr>
+      {bills_rows_html}
+      <tr class="highlight"><td>Total living cost</td><td class="num" style="color:var(--red)">−{fmt_money(flat_living_cost)}/mo</td></tr>
+    </tbody>
+  </table>
 </div>
 <div class="grid-2">
   <div class="card">
-    <h2>Proceeds breakdown</h2>
+    <h2>Sale proceeds</h2>
+    <form method="get" action="/housing" style="margin-bottom:14px">
+      <input type="hidden" name="scenario" value="{escape(scenario)}">
+      <input type="hidden" name="tab" value="flat">
+      <div class="form-row">
+        <div>
+          <label>Sale price ({fmt_money(sale_price_low)} – {fmt_money(sale_price_high)})</label>
+          <input name="sale_price" type="number" step="1000" value="{resolved_sale_price}">
+        </div>
+        <div><label>&nbsp;</label><button type="submit">Calculate</button></div>
+      </div>
+    </form>
     <div class="breakdown-row"><span>Sale price</span><span class="amount">{fmt_money(r.sale_price)}</span></div>
-    <div class="breakdown-row"><span>Estate agent fee ({fmt_pct(agent_rate)})</span><span class="amount" style="color:var(--red)">−{fmt_money(r.estate_agent_fee)}</span></div>
-    <div class="breakdown-row"><span>Solicitor / legal fees</span><span class="amount" style="color:var(--red)">−{fmt_money(r.solicitor_fee)}</span></div>
+    <div class="breakdown-row"><span>Agent fee ({fmt_pct(agent_rate)})</span><span class="amount" style="color:var(--red)">−{fmt_money(r.estate_agent_fee)}</span></div>
+    <div class="breakdown-row"><span>Solicitor</span><span class="amount" style="color:var(--red)">−{fmt_money(r.solicitor_fee)}</span></div>
     <div class="breakdown-row"><span>Outstanding mortgage</span><span class="amount" style="color:var(--red)">−{fmt_money(r.outstanding_mortgage)}</span></div>
-    <div class="breakdown-row"><span>Early repayment charge</span><span class="amount" style="color:var(--red)">−{fmt_money(r.early_repayment_charge)}</span></div>
-    <div class="breakdown-row"><span>Other costs</span><span class="amount" style="color:var(--red)">−{fmt_money(r.other_costs)}</span></div>
     <div class="breakdown-row"><span style="font-weight:700">Net proceeds</span><span class="amount" style="font-weight:700;color:{"var(--green)" if r.net_proceeds >= 0 else "var(--red)"}">{fmt_money(r.net_proceeds)}</span></div>
   </div>
   <div class="card">
-    <h2>Deposit availability</h2>
-    <div class="metric {"green" if r.net_proceeds >= 0 else "red"}">{fmt_money(r.net_proceeds)}</div>
-    <div class="label">Available as deposit for new house</div>
-    <hr class="divider" style="margin:14px 0">
-    <p class="muted">Tip: use this as the deposit on the <a href="/purchase?scenario={escape(scenario)}&deposit={r.net_proceeds}">Purchase page</a> to see what mortgage you can get.</p>
-    <hr class="divider" style="margin:14px 0">
-    <h3>Quick range</h3>
+    <h2>Quick range</h2>
     <table>
       <thead><tr><th>Sale price</th><th class="num">Net proceeds</th></tr></thead>
       <tbody>
-        {"".join(f'<tr{"" if p != int(sale_price_input) else " class=highlight"}><td>{fmt_money(Decimal(p))}</td><td class="num">{fmt_money(Decimal(p) - Decimal(p)*agent_rate - sol_fee - balance)}</td></tr>' for p in range(int(sale_price_low), int(sale_price_high)+1, 5000))}
+        {"".join(f'<tr{"" if p != int(resolved_sale_price) else " class=highlight"}><td>{fmt_money(Decimal(p))}</td><td class="num">{fmt_money(Decimal(p) - Decimal(p)*agent_rate - sol_fee - balance)}</td></tr>' for p in range(int(sale_price_low), int(sale_price_high)+1, 5000))}
       </tbody>
     </table>
   </div>
 </div>"""
-        return html_page("Flat Sale", body, scenario, "/sale", message)
 
-    # -----------------------------------------------------------------------
-    # Purchase
-    # -----------------------------------------------------------------------
-
-    def render_purchase(
-        self,
-        scenario: str,
-        house_price: Decimal | None = None,
-        deposit_rate: Decimal | None = None,
-        mortgage_rate: Decimal | None = None,
-        message: str = "",
-    ) -> str:
-        conn = self.connection()
-        try:
-            assumptions = get_assumptions(conn, scenario)
-            alex_income = calculate_alex_static_income_for_scenario(conn, scenario)
-            charly_active = calculate_charly_income_for_scenario(conn, scenario)
-            housing = calculate_housing_for_scenario(
-                conn, scenario,
-                house_price=house_price,
-                deposit_rate=deposit_rate,
-                mortgage_rate=mortgage_rate,
+        else:  # house
+            rate_opts_html = "".join(
+                f'<option value="{rt}" {"selected" if rt == resolved_rate else ""}>{fmt_pct(rt)}</option>'
+                for rt in rate_options
             )
-        finally:
-            conn.close()
-
-        rate_options = [Decimal("0.035"), Decimal("0.04"), Decimal("0.045"), Decimal("0.05"), Decimal("0.055"), Decimal("0.06")]
-        deposit_options = [Decimal("0.05"), Decimal("0.10"), Decimal("0.15"), Decimal("0.20")]
-        price_low = Decimal(assumptions[("housing", "house_price_low")].value)
-        price_high = Decimal(assumptions[("housing", "house_price_high")].value)
-
-        resolved_house_price = house_price or price_low
-        resolved_rate = mortgage_rate or Decimal(assumptions[("housing", "default_mortgage_rate")].value)
-        resolved_deposit = deposit_rate or Decimal(assumptions[("housing", "default_deposit_rate")].value)
-
-        alex_gross = alex_income.gross_employment_income_annual
-        charly_gross = charly_active.gross_annual
-        combined_gross = alex_gross + charly_gross
-
-        rate_opts_html = "".join(
-            f'<option value="{r}" {"selected" if r == resolved_rate else ""}>{fmt_pct(r)}</option>'
-            for r in rate_options
-        )
-        dep_opts_html = "".join(
-            f'<option value="{d}" {"selected" if d == resolved_deposit else ""}>{fmt_pct(d)}</option>'
-            for d in deposit_options
-        )
-
-        # Stress test at 7%
-        from financials.calculators.housing import MortgageInput, calculate_repayment_mortgage
-        stress = calculate_repayment_mortgage(MortgageInput(
-            purchase_price=housing.mortgage.purchase_price,
-            deposit_rate=resolved_deposit,
-            annual_interest_rate=Decimal("0.07"),
-            term_years=housing.mortgage.term_years,
-        ))
-
-        m = housing.mortgage
-        a = housing.affordability
-
-        body = f"""
-<h1>House Purchase</h1>
+            dep_options = [Decimal("0.05"), Decimal("0.10"), Decimal("0.15"), Decimal("0.20")]
+            dep_opts_html = "".join(
+                f'<option value="{d}" {"selected" if d == resolved_deposit else ""}>{fmt_pct(d)}</option>'
+                for d in dep_options
+            )
+            stress = calculate_repayment_mortgage(MortgageInput(
+                purchase_price=m.purchase_price,
+                deposit_rate=resolved_deposit,
+                annual_interest_rate=Decimal("0.07"),
+                term_years=m.term_years,
+            ))
+            body = f"""
+<h1>Housing — House Purchase</h1>
+{tab_bar}
 <div class="card" style="margin-bottom:20px">
-  <form method="get" action="/purchase">
+  <form method="get" action="/housing">
     <input type="hidden" name="scenario" value="{escape(scenario)}">
+    <input type="hidden" name="tab" value="house">
     <div class="form-row">
       <div>
-        <label>House price (range: {fmt_money(price_low)}–{fmt_money(price_high)})</label>
+        <label>House price ({fmt_money(price_low)}–{fmt_money(price_high)})</label>
         <input name="house_price" type="number" step="5000" value="{resolved_house_price}">
       </div>
-      <div>
-        <label>Deposit</label>
-        <select name="deposit_rate">{dep_opts_html}</select>
-      </div>
-      <div>
-        <label>Mortgage rate</label>
-        <select name="mortgage_rate">{rate_opts_html}</select>
-      </div>
+      <div><label>Deposit</label><select name="deposit_rate">{dep_opts_html}</select></div>
+      <div><label>Rate</label><select name="mortgage_rate">{rate_opts_html}</select></div>
       <div><label>&nbsp;</label><button type="submit">Calculate</button></div>
     </div>
   </form>
 </div>
-<div class="grid">
+<div class="grid" style="grid-template-columns:repeat(5,1fr)">
   <div class="card">
     <div class="metric">{fmt_money(m.deposit)}</div>
     <div class="label">Deposit ({fmt_pct(resolved_deposit)})</div>
@@ -725,132 +795,313 @@ class FinancialsWebApp:
     <div class="label">Monthly payment at {fmt_pct(resolved_rate)}</div>
   </div>
   <div class="card">
-    <div class="metric red">{fmt_money(stress.monthly_payment)}</div>
-    <div class="label">Stress test at 7%</div>
+    <div class="metric amber">{fmt_money(household_bills_total)}</div>
+    <div class="label">Household bills / month</div>
+  </div>
+  <div class="card">
+    <div class="metric red">{fmt_money(m.monthly_payment + household_bills_total)}</div>
+    <div class="label">Total living cost / month</div>
   </div>
 </div>
+{bills_section_html}
 <div class="grid-2">
   <div class="card">
-    <h2>Affordability check</h2>
+    <h2>Affordability</h2>
     <table>
       <tbody>
-        <tr><td>Alex gross employment</td><td class="num">{fmt_money(alex_gross)}/yr</td></tr>
+        <tr><td>Alex gross</td><td class="num">{fmt_money(alex_gross)}/yr</td></tr>
         <tr><td>Charly gross ({charly_active.weekly_hours} hrs/wk)</td><td class="num">{fmt_money(charly_gross)}/yr</td></tr>
         <tr class="total"><td>Combined gross</td><td class="num">{fmt_money(combined_gross)}/yr</td></tr>
-        <tr><td>4× max borrowing</td><td class="num">{fmt_money(a.low_max_borrowing)}</td></tr>
-        <tr><td>4.5× max borrowing</td><td class="num">{fmt_money(a.high_max_borrowing)}</td></tr>
-        <tr><td>4× max purchase (+ deposit)</td><td class="num">{fmt_money(a.low_max_purchase_price)}</td></tr>
-        <tr class="highlight"><td>4.5× max purchase (+ deposit)</td><td class="num">{fmt_money(a.high_max_purchase_price)}</td></tr>
+        <tr><td>4× max purchase</td><td class="num">{fmt_money(a.low_max_purchase_price)}</td></tr>
+        <tr class="highlight"><td>4.5× max purchase</td><td class="num">{fmt_money(a.high_max_purchase_price)}</td></tr>
       </tbody>
     </table>
-    <p class="muted" style="margin-top:12px">Combined gross updates automatically when you change Charly's active scenario on the <a href="/charly?scenario={escape(scenario)}">Charly page</a>.</p>
   </div>
   <div class="card">
     <h2>Rate comparison — {fmt_money(resolved_house_price)}</h2>
     <table>
       <thead><tr><th>Rate</th><th class="num">Monthly</th><th class="num">Annual</th></tr></thead>
       <tbody>
-        {"".join(f"""<tr{"" if r != resolved_rate else " class=highlight"}>
-          <td>{fmt_pct(r)}</td>
-          <td class="num">{fmt_money(calculate_repayment_mortgage(MortgageInput(resolved_house_price, resolved_deposit, r, housing.mortgage.term_years)).monthly_payment)}</td>
-          <td class="num">{fmt_money(calculate_repayment_mortgage(MortgageInput(resolved_house_price, resolved_deposit, r, housing.mortgage.term_years)).annual_payment)}</td>
-        </tr>""" for r in rate_options)}
+        {"".join(f'<tr{"" if rt != resolved_rate else " class=highlight"}><td>{fmt_pct(rt)}</td><td class="num">{fmt_money(calculate_repayment_mortgage(MortgageInput(resolved_house_price, resolved_deposit, rt, m.term_years)).monthly_payment)}</td><td class="num">{fmt_money(calculate_repayment_mortgage(MortgageInput(resolved_house_price, resolved_deposit, rt, m.term_years)).annual_payment)}</td></tr>' for rt in rate_options)}
       </tbody>
     </table>
   </div>
+</div>
+<div class="card" style="margin-top:20px">
+  <h2>Stress test — 7%</h2>
+  <div class="grid-3" style="margin-bottom:0">
+    <div><div class="metric red">{fmt_money(stress.monthly_payment)}</div><div class="label">Mortgage only</div></div>
+    <div><div class="metric red">{fmt_money(stress.monthly_payment + household_bills_total)}</div><div class="label">+ household bills</div></div>
+  </div>
 </div>"""
-        return html_page("House Purchase", body, scenario, "/purchase", message)
+
+        return html_page("Housing", body, scenario, "/housing", message)
 
     # -----------------------------------------------------------------------
-    # Expenses
+    # Tracker (grouped expenses, inline edit)
     # -----------------------------------------------------------------------
 
-    def render_expenses(self, scenario: str, message: str = "") -> str:
+    def render_tracker(self, scenario: str, message: str = "") -> str:
         conn = self.connection()
         try:
             summaries = list_manual_summaries(conn, scenario)
         finally:
             conn.close()
 
-        from financials.summaries import monthly_amount
-        income_items = [i for i in summaries if i.scope == "income"]
         expense_items = [i for i in summaries if i.scope == "expense"]
+        income_items = [i for i in summaries if i.scope == "income"]
         saving_items = [i for i in summaries if i.scope == "saving"]
 
-        def render_section(items, scope: str, tag_class: str) -> str:
-            if not items:
-                return f'<tr><td colspan="5" class="muted" style="text-align:center">No {scope} entries</td></tr>'
-            total = sum(monthly_amount(i.amount, i.frequency) for i in items)
-            rows = "".join(f"""
-<tr>
-  <td><span class="tag {tag_class}">{escape(i.scope)}</span></td>
-  <td>{escape(i.category)}</td>
-  <td class="num">{fmt_money(i.amount)}</td>
-  <td>{escape(i.frequency)}</td>
-  <td class="num">{fmt_money(monthly_amount(i.amount, i.frequency))}</td>
-  <td class="muted" style="font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis">{escape(i.notes)}</td>
-  <td>
-    <form method="post" action="/expenses?scenario={escape(scenario)}" style="display:inline">
+        all_groups = sorted({i.group_name or "Other" for i in expense_items})
+        if not all_groups:
+            all_groups = ["Bills", "Household", "Personal"]
+
+        GROUP_COLOURS = {
+            "Bills": "#2563eb",
+            "Household": "#16a34a",
+            "Personal": "#d97706",
+            "Flat": "#6366f1",
+            "Savings": "#0891b2",
+            "Other": "#64748b",
+        }
+
+        def group_colour(name: str) -> str:
+            return GROUP_COLOURS.get(name, "#64748b")
+
+        def group_select(current: str) -> str:
+            known = ["Bills", "Household", "Personal", "Flat", "Savings", "Other"]
+            opts = sorted(set(known + all_groups))
+            return "".join(
+                f'<option value="{escape(g)}" {"selected" if g == current else ""}>{escape(g)}</option>'
+                for g in opts
+            )
+
+        # ---- Compute totals ----
+        monthly_expenses_total = sum(monthly_amount(i.amount, i.frequency) for i in expense_items)
+        monthly_income_total = sum(monthly_amount(i.amount, i.frequency) for i in income_items)
+        monthly_savings_total = sum(monthly_amount(i.amount, i.frequency) for i in saving_items)
+
+        # ---- Group totals for charts ----
+        group_totals: dict[str, Decimal] = {}
+        for i in expense_items:
+            g = i.group_name or "Other"
+            group_totals[g] = group_totals.get(g, Decimal("0")) + monthly_amount(i.amount, i.frequency)
+
+        # ---- Category totals (top 10) ----
+        cat_totals: dict[str, Decimal] = {}
+        for i in expense_items:
+            cat_totals[i.category] = cat_totals.get(i.category, Decimal("0")) + monthly_amount(i.amount, i.frequency)
+        top_categories = sorted(cat_totals.items(), key=lambda x: x[1], reverse=True)[:10]
+
+        # ---- Stacked bar (groups) ----
+        stacked_parts = ""
+        legend_parts = ""
+        for gname in sorted(group_totals.keys()):
+            gtotal = group_totals[gname]
+            pct = (gtotal / monthly_expenses_total * 100) if monthly_expenses_total else Decimal("0")
+            colour = group_colour(gname)
+            stacked_parts += f'<div style="width:{pct:.1f}%;background:{colour}" title="{escape(gname)}: {fmt_money(gtotal)} ({pct:.0f}%)">{escape(gname) if pct > 8 else ""}</div>'
+            legend_parts += f'<div class="legend-item"><div class="legend-dot" style="background:{colour}"></div>{escape(gname)} {fmt_money(gtotal)} ({pct:.0f}%)</div>'
+
+        # ---- Group bar chart ----
+        max_group = max(group_totals.values()) if group_totals else Decimal("1")
+        group_bars = ""
+        for gname in sorted(group_totals.keys()):
+            gtotal = group_totals[gname]
+            pct_of_max = (gtotal / max_group * 100) if max_group else Decimal("0")
+            pct_of_total = (gtotal / monthly_expenses_total * 100) if monthly_expenses_total else Decimal("0")
+            colour = group_colour(gname)
+            group_bars += f"""<li>
+  <div class="bar-label"><span>{escape(gname)}</span><span class="bar-amount">{fmt_money(gtotal)}</span></div>
+  <div class="bar-track"><div class="bar-fill" style="width:{pct_of_max:.1f}%;background:{colour}"></div><span class="bar-pct">{pct_of_total:.0f}%</span></div>
+</li>"""
+
+        # ---- Top categories bar chart ----
+        max_cat = top_categories[0][1] if top_categories else Decimal("1")
+        cat_bars = ""
+        for cat_name, cat_total in top_categories:
+            pct_of_max = (cat_total / max_cat * 100) if max_cat else Decimal("0")
+            pct_of_total = (cat_total / monthly_expenses_total * 100) if monthly_expenses_total else Decimal("0")
+            # Find group colour for this category
+            cat_group = next((i.group_name or "Other" for i in expense_items if i.category == cat_name), "Other")
+            colour = group_colour(cat_group)
+            cat_bars += f"""<li>
+  <div class="bar-label"><span>{escape(cat_name)}</span><span class="bar-amount">{fmt_money(cat_total)}</span></div>
+  <div class="bar-track"><div class="bar-fill" style="width:{pct_of_max:.1f}%;background:{colour}"></div><span class="bar-pct">{pct_of_total:.0f}%</span></div>
+</li>"""
+
+        # ---- Editable table helpers ----
+        def render_group_table(items: list, scope: str) -> str:
+            grouped: dict[str, list] = {}
+            for i in items:
+                g = i.group_name or "Other"
+                grouped.setdefault(g, []).append(i)
+
+            html_parts: list[str] = []
+            grand_total = Decimal("0")
+
+            for gname in sorted(grouped.keys()):
+                gitems = grouped[gname]
+                group_total = sum(monthly_amount(i.amount, i.frequency) for i in gitems)
+                grand_total += group_total
+                colour = group_colour(gname)
+
+                html_parts.append(f'<tr class="total" style="background:#eef2ff"><td colspan="2" style="font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:{colour}"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{colour};margin-right:6px"></span>{escape(gname)}</td><td class="num" style="color:{colour}">{fmt_money(group_total)}</td><td colspan="3"></td></tr>')
+
+                for i in gitems:
+                    html_parts.append(f"""<tr>
+  <form method="post" action="/tracker?scenario={escape(scenario)}">
+    <input type="hidden" name="_action" value="update">
+    <input type="hidden" name="id" value="{i.id}">
+    <td><input name="category" value="{escape(i.category)}" style="border:none;background:transparent;padding:4px 0;width:100%"></td>
+    <td><input name="amount" value="{i.amount}" type="number" step="0.01" style="width:90px;text-align:right"></td>
+    <td class="num muted">{fmt_money(monthly_amount(i.amount, i.frequency))}</td>
+    <td><select name="group_name" style="width:auto;font-size:12px">{group_select(i.group_name or "Other")}</select></td>
+    <td style="white-space:nowrap">
+      <button type="submit" class="btn btn-sm" title="Save">✓</button>
+  </form>
+  <form method="post" action="/tracker?scenario={escape(scenario)}" style="display:inline">
       <input type="hidden" name="_action" value="delete">
       <input type="hidden" name="id" value="{i.id}">
-      <button type="submit" class="btn btn-sm btn-danger">✕</button>
-    </form>
-  </td>
-</tr>""" for i in items)
-            return rows + f'<tr class="total"><td colspan="4">Total {scope}</td><td class="num">{fmt_money(total)}</td><td colspan="2"></td></tr>'
+      <button type="submit" class="btn btn-sm btn-danger" title="Delete">✕</button>
+  </form>
+    </td>
+</tr>""")
 
-        monthly_income = sum(monthly_amount(i.amount, i.frequency) for i in income_items)
-        monthly_expenses = sum(monthly_amount(i.amount, i.frequency) for i in expense_items)
-        monthly_savings = sum(monthly_amount(i.amount, i.frequency) for i in saving_items)
-        monthly_net = monthly_income - monthly_expenses - monthly_savings
+            if items:
+                html_parts.append(f'<tr class="total"><td>Total {scope}</td><td></td><td class="num">{fmt_money(grand_total)}</td><td colspan="3"></td></tr>')
+            return "".join(html_parts)
+
+        def render_editable_rows(items: list, scope_label: str) -> str:
+            rows = ""
+            total = Decimal("0")
+            for i in items:
+                m = monthly_amount(i.amount, i.frequency)
+                total += m
+                rows += f"""<tr>
+  <form method="post" action="/tracker?scenario={escape(scenario)}">
+    <input type="hidden" name="_action" value="update">
+    <input type="hidden" name="id" value="{i.id}">
+    <td><input name="category" value="{escape(i.category)}" style="border:none;background:transparent;padding:4px 0;width:100%"></td>
+    <td><input name="amount" value="{i.amount}" type="number" step="0.01" style="width:90px;text-align:right"></td>
+    <td class="num muted">{fmt_money(m)}</td>
+    <td><select name="group_name" style="width:auto;font-size:12px">{group_select(i.group_name or "Other")}</select></td>
+    <td style="white-space:nowrap">
+      <button type="submit" class="btn btn-sm" title="Save">✓</button>
+  </form>
+  <form method="post" action="/tracker?scenario={escape(scenario)}" style="display:inline">
+      <input type="hidden" name="_action" value="delete">
+      <input type="hidden" name="id" value="{i.id}">
+      <button type="submit" class="btn btn-sm btn-danger" title="Delete">✕</button>
+  </form>
+    </td>
+</tr>"""
+            if items:
+                rows += f'<tr class="total"><td>Total {scope_label}</td><td></td><td class="num">{fmt_money(total)}</td><td colspan="3"></td></tr>'
+            return rows
+
+        # ---- Bills detail breakdown ----
+        bills_items = [i for i in expense_items if (i.group_name or "Other") == "Bills"]
+        bills_total = sum(monthly_amount(i.amount, i.frequency) for i in bills_items)
+
+        bills_breakdown = ""
+        for i in sorted(bills_items, key=lambda x: monthly_amount(x.amount, x.frequency), reverse=True):
+            m = monthly_amount(i.amount, i.frequency)
+            pct = (m / bills_total * 100) if bills_total else Decimal("0")
+            bills_breakdown += f'<div class="breakdown-row"><span>{escape(i.category)}</span><span class="amount">{fmt_money(m)} <span class="muted">({pct:.0f}%)</span></span></div>'
 
         body = f"""
-<h1>Expenses &amp; Income</h1>
+<h1>Monthly Tracker</h1>
+
 <div class="grid" style="margin-bottom:20px">
   <div class="card">
-    <div class="metric green">{fmt_money(monthly_income)}</div>
-    <div class="label">Monthly income</div>
+    <div class="metric red">{fmt_money(monthly_expenses_total)}</div>
+    <div class="label">Total monthly spend</div>
   </div>
   <div class="card">
-    <div class="metric red">{fmt_money(monthly_expenses)}</div>
-    <div class="label">Monthly expenses</div>
+    <div class="metric" style="color:#2563eb">{fmt_money(group_totals.get("Bills", Decimal("0")))}</div>
+    <div class="label">Bills</div>
   </div>
   <div class="card">
-    <div class="metric">{fmt_money(monthly_savings)}</div>
-    <div class="label">Monthly savings</div>
+    <div class="metric" style="color:#16a34a">{fmt_money(group_totals.get("Household", Decimal("0")))}</div>
+    <div class="label">Household</div>
   </div>
   <div class="card">
-    <div class="metric {"green" if monthly_net >= 0 else "red"}">{fmt_money(monthly_net)}</div>
-    <div class="label">Monthly net</div>
+    <div class="metric" style="color:#d97706">{fmt_money(group_totals.get("Personal", Decimal("0")))}</div>
+    <div class="label">Personal</div>
+  </div>
+  <div class="card">
+    <div class="metric" style="color:#6366f1">{fmt_money(group_totals.get("Flat", Decimal("0")))}</div>
+    <div class="label">Flat</div>
   </div>
 </div>
+
 <div class="card" style="margin-bottom:20px">
+  <h2>Spending breakdown</h2>
+  <div class="stacked-bar">{stacked_parts}</div>
+  <div class="legend">{legend_parts}</div>
+</div>
+
+<div class="grid-2" style="margin-bottom:20px">
+  <div class="card">
+    <h2>By group</h2>
+    <ul class="bar-chart">{group_bars}</ul>
+  </div>
+  <div class="card">
+    <h2>Top 10 categories</h2>
+    <ul class="bar-chart">{cat_bars}</ul>
+  </div>
+</div>
+
+<div class="grid-2" style="margin-bottom:20px">
+  <div class="card">
+    <h2>Bills breakdown ({fmt_money(bills_total)}/mo)</h2>
+    {bills_breakdown}
+  </div>
+  <div class="card">
+    <h2>Summary</h2>
+    <div class="breakdown-row"><span>Monthly expenses</span><span class="amount" style="color:var(--red)">{fmt_money(monthly_expenses_total)}</span></div>
+    <div class="breakdown-row"><span>Other income (manual)</span><span class="amount" style="color:var(--green)">{fmt_money(monthly_income_total)}</span></div>
+    <div class="breakdown-row"><span>Monthly savings</span><span class="amount">{fmt_money(monthly_savings_total)}</span></div>
+    <hr class="divider" style="margin:12px 0">
+    <div class="muted" style="margin-bottom:8px">Group count: {len(group_totals)} groups, {len(expense_items)} expense items</div>
+    <div class="muted">Largest group: {max(group_totals.items(), key=lambda x: x[1])[0] if group_totals else "—"} ({fmt_money(max(group_totals.values()) if group_totals else Decimal("0"))})</div>
+    <div class="muted">Largest category: {top_categories[0][0] if top_categories else "—"} ({fmt_money(top_categories[0][1]) if top_categories else "—"})</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px">
   <h2>Add entry</h2>
-  <form method="post" action="/expenses?scenario={escape(scenario)}">
+  <form method="post" action="/tracker?scenario={escape(scenario)}">
+    <input type="hidden" name="_action" value="add">
     <div class="form-row">
       <div><label>Scope</label><select name="scope"><option>income</option><option selected>expense</option><option>saving</option></select></div>
+      <div><label>Group</label><select name="group_name">{group_select("Household")}</select></div>
       <div><label>Category</label><input name="category" required placeholder="e.g. Groceries"></div>
       <div><label>Amount (£)</label><input name="amount" type="number" step="0.01" required placeholder="0.00"></div>
-      <div><label>Frequency</label><select name="frequency"><option selected>monthly</option><option>weekly</option><option>yearly</option><option>one_off</option></select></div>
-      <div><label>Notes</label><input name="notes" placeholder="optional"></div>
+      <div><label>Frequency</label><select name="frequency"><option selected>monthly</option><option>weekly</option><option>yearly</option></select></div>
       <div><label>&nbsp;</label><button type="submit">Add</button></div>
     </div>
   </form>
 </div>
-<div class="card">
-  <h2>All entries</h2>
+
+{"<div class='card' style='margin-bottom:16px'><h2><span class='tag tag-income'>Income</span> Other income</h2><div style='overflow-x:auto'><table><thead><tr><th>Category</th><th class='num'>Amount</th><th class='num'>Monthly</th><th>Group</th><th></th></tr></thead><tbody>" + render_editable_rows(income_items, "income") + "</tbody></table></div></div>" if income_items else ""}
+
+<div class="card" style="margin-bottom:16px">
+  <h2><span class="tag tag-expense">Outgoing</span> Expenses</h2>
   <div style="overflow-x:auto">
   <table>
-    <thead><tr><th>Scope</th><th>Category</th><th class="num">Amount</th><th>Frequency</th><th class="num">Monthly equiv.</th><th>Notes</th><th></th></tr></thead>
+    <thead><tr><th>Category</th><th class="num">Amount</th><th class="num">Monthly</th><th>Group</th><th></th></tr></thead>
     <tbody>
-      {render_section(income_items, "income", "tag-income")}
-      {render_section(expense_items, "expense", "tag-expense")}
-      {render_section(saving_items, "saving", "tag-saving")}
+      {render_group_table(expense_items, "expenses")}
     </tbody>
   </table>
   </div>
-</div>"""
-        return html_page("Expenses & Income", body, scenario, "/expenses", message)
+</div>
+
+{"<div class='card' style='margin-bottom:16px'><h2><span class='tag tag-saving'>Savings</span></h2><div style='overflow-x:auto'><table><thead><tr><th>Category</th><th class='num'>Amount</th><th class='num'>Monthly</th><th>Group</th><th></th></tr></thead><tbody>" + render_editable_rows(saving_items, "savings") + "</tbody></table></div></div>" if saving_items else ""}
+"""
+        return html_page("Tracker", body, scenario, "/tracker", message)
 
     # -----------------------------------------------------------------------
     # Variables
@@ -921,14 +1172,28 @@ class FinancialsWebApp:
                 conn.close()
             return "/variables", "Variable updated."
 
-        if path in ("/expenses", "/manual-summaries"):
+        if path in ("/tracker", "/expenses", "/manual-summaries"):
             if action == "delete":
                 conn = self.connection()
                 try:
                     delete_manual_summary(conn, int(form_value(form, "id")))
                 finally:
                     conn.close()
-                return "/expenses", "Entry deleted."
+                return "/tracker", "Entry deleted."
+            if action == "update":
+                conn = self.connection()
+                try:
+                    summary_id = int(form_value(form, "id"))
+                    update_manual_summary(
+                        conn,
+                        summary_id,
+                        category=form_value(form, "category") or None,
+                        amount=parse_decimal_form(form, "amount", default=None),
+                        group_name=form_value(form, "group_name") or None,
+                    )
+                finally:
+                    conn.close()
+                return "/tracker", "Entry updated."
             conn = self.connection()
             try:
                 add_manual_summary(
@@ -937,12 +1202,13 @@ class FinancialsWebApp:
                     scope=form_value(form, "scope"),
                     category=form_value(form, "category"),
                     amount=parse_decimal_form(form, "amount"),
-                    frequency=form_value(form, "frequency"),
+                    frequency=form_value(form, "frequency", "monthly"),
                     notes=form_value(form, "notes"),
+                    group_name=form_value(form, "group_name"),
                 )
             finally:
                 conn.close()
-            return "/expenses", "Entry added."
+            return "/tracker", "Entry added."
 
         if path == "/charly":
             if action == "set_hours":
@@ -962,6 +1228,24 @@ class FinancialsWebApp:
                 finally:
                     conn.close()
                 return "/charly", f"Charly active hours set to {hours_str}/week."
+            if action == "toggle_nursery":
+                enabled_str = form_value(form, "enabled", "true")
+                conn = self.connection()
+                try:
+                    set_assumption(
+                        conn,
+                        scenario_name=scenario,
+                        namespace="nursery",
+                        key="enabled",
+                        value=enabled_str,
+                        value_type="boolean",
+                        unit="",
+                        source="web_ui",
+                    )
+                finally:
+                    conn.close()
+                label = "enabled" if enabled_str == "true" else "disabled"
+                return "/charly", f"Nursery costs {label}."
 
         return "/", "Unknown action."
 
@@ -984,18 +1268,18 @@ def make_handler(app: FinancialsWebApp):
                     html = app.render_alex(scenario, message)
                 elif p == "/charly":
                     html = app.render_charly(scenario, message)
-                elif p == "/flat":
-                    html = app.render_flat(scenario, message)
-                elif p == "/sale":
+                elif p == "/housing":
+                    tab = query.get("tab", ["current"])[0]
                     sale_price = Decimal(query["sale_price"][0]) if "sale_price" in query else None
-                    html = app.render_sale(scenario, sale_price, message)
-                elif p == "/purchase":
                     house_price = Decimal(query["house_price"][0]) if "house_price" in query else None
                     deposit_rate = Decimal(query["deposit_rate"][0]) if "deposit_rate" in query else None
                     mortgage_rate = Decimal(query["mortgage_rate"][0]) if "mortgage_rate" in query else None
-                    html = app.render_purchase(scenario, house_price, deposit_rate, mortgage_rate, message)
-                elif p in ("/expenses", "/manual-summaries"):
-                    html = app.render_expenses(scenario, message)
+                    html = app.render_housing(scenario, tab, sale_price, house_price, deposit_rate, mortgage_rate, message)
+                elif p in ("/flat", "/sale", "/purchase"):
+                    tab = {"/flat": "flat", "/sale": "flat", "/purchase": "house"}.get(p, "current")
+                    html = app.render_housing(scenario, tab=tab, message=message)
+                elif p in ("/tracker", "/expenses", "/manual-summaries"):
+                    html = app.render_tracker(scenario, message)
                 elif p == "/variables":
                     html = app.render_variables(scenario, message)
                 elif p == "/":
