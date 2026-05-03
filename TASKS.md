@@ -16,6 +16,7 @@ Next steps, roughly prioritised. Top items are actionable now; lower items need 
 - saving house purchase price should persist across windows.
 - admin panel, maybe action to update seed values with current state?
 - rsu, never needs to be included in net monthly. it would only ever be included in gross/net yearly.
+- persistence across make runs
 
 
 ### 1. Update seeded bill values to current figures
