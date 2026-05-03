@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: financials
+Version: 0.1.0
+Summary: Local-first household financial planning and scenario tooling
+Requires-Python: >=3.11
