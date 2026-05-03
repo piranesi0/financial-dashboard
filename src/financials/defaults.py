@@ -70,6 +70,8 @@ class IncomeDefaults:
     alex_ni_upper_earnings_limit: Decimal = Decimal("50270")
     alex_ni_main_rate: Decimal = Decimal("0.08")
     alex_ni_upper_rate: Decimal = Decimal("0.02")
+    alex_student_loan_threshold: Decimal = Decimal("27295")
+    alex_student_loan_rate: Decimal = Decimal("0.09")
     alex_stock_gross_annual: Decimal = Decimal("14801.60748")
     alex_stock_net_annual: Decimal = Decimal("6660.723365")
     alex_include_stock_in_static_income: bool = False

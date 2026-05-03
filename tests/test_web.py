@@ -99,7 +99,7 @@ class WebTest(unittest.TestCase):
 
         self.assertIn("Alex Income", html)
         self.assertIn("Gross employment", html)
-        self.assertIn("£3,464.98", html)
+        self.assertIn("£3,226.31", html)
 
     def test_render_charly_shows_all_scenarios(self) -> None:
         html = self.app.render_charly("baseline")

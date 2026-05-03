@@ -89,11 +89,7 @@ def upsert_baseline_scenario(connection: sqlite3.Connection) -> int:
         """
         INSERT INTO assumption (scenario_id, namespace, key, value, value_type, unit, source)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(scenario_id, namespace, key) DO UPDATE SET
-            value = excluded.value,
-            value_type = excluded.value_type,
-            unit = excluded.unit,
-            source = excluded.source
+        ON CONFLICT(scenario_id, namespace, key) DO NOTHING
         """,
         [
             (scenario_id, namespace, key, value, value_type, unit, "plan_decision")
@@ -169,6 +165,8 @@ def baseline_assumptions() -> list[tuple[str, str, str, str, str]]:
         ("income", "alex_ni_upper_earnings_limit", decimal_text(income.alex_ni_upper_earnings_limit), "money", "GBP/year"),
         ("income", "alex_ni_main_rate", decimal_text(income.alex_ni_main_rate), "percent", "ratio"),
         ("income", "alex_ni_upper_rate", decimal_text(income.alex_ni_upper_rate), "percent", "ratio"),
+        ("income", "alex_student_loan_threshold", decimal_text(income.alex_student_loan_threshold), "money", "GBP/year"),
+        ("income", "alex_student_loan_rate", decimal_text(income.alex_student_loan_rate), "percent", "ratio"),
         ("income", "alex_stock_gross_annual", decimal_text(income.alex_stock_gross_annual), "money", "GBP/year"),
         ("income", "alex_stock_net_annual", decimal_text(income.alex_stock_net_annual), "money", "GBP/year"),
         ("income", "alex_include_stock_in_static_income", str(income.alex_include_stock_in_static_income).lower(), "boolean", ""),
@@ -204,10 +202,12 @@ def parse_example_outgoing(path: Path = EXAMPLE_OUTGOING_PATH) -> list[tuple[str
 
 def seed_bills_and_income(connection: sqlite3.Connection, scenario_name: str) -> None:
     scenario_id = get_scenario_id(connection, scenario_name)
-    connection.execute(
-        "DELETE FROM manual_summary WHERE scenario_id = ? AND notes LIKE ?",
+    already_seeded = connection.execute(
+        "SELECT 1 FROM manual_summary WHERE scenario_id = ? AND notes LIKE ? LIMIT 1",
         (scenario_id, f"{SEEDED_BILLS_NOTE_PREFIX}%"),
-    )
+    ).fetchone()
+    if already_seeded:
+        return
     connection.executemany(
         """
         INSERT INTO manual_summary (scenario_id, scope, category, amount, frequency, notes, group_name)
@@ -222,10 +222,12 @@ def seed_bills_and_income(connection: sqlite3.Connection, scenario_name: str) ->
 
 def seed_example_outgoing_summaries(connection: sqlite3.Connection, scenario_name: str) -> None:
     scenario_id = get_scenario_id(connection, scenario_name)
-    connection.execute(
-        "DELETE FROM manual_summary WHERE scenario_id = ? AND notes LIKE ?",
+    already_seeded = connection.execute(
+        "SELECT 1 FROM manual_summary WHERE scenario_id = ? AND notes LIKE ? LIMIT 1",
         (scenario_id, f"{SEEDED_EXPENSE_NOTE_PREFIX}%"),
-    )
+    ).fetchone()
+    if already_seeded:
+        return
     rows = parse_example_outgoing()
     connection.executemany(
         """

@@ -133,6 +133,8 @@ def calculate_alex_static_income_for_scenario(
             ni_upper_earnings_limit=assumption_decimal(assumptions, "income", "alex_ni_upper_earnings_limit"),
             ni_main_rate=assumption_decimal(assumptions, "income", "alex_ni_main_rate"),
             ni_upper_rate=assumption_decimal(assumptions, "income", "alex_ni_upper_rate"),
+            student_loan_threshold=assumption_decimal(assumptions, "income", "alex_student_loan_threshold"),
+            student_loan_rate=assumption_decimal(assumptions, "income", "alex_student_loan_rate"),
             stock_net_annual=assumption_decimal(assumptions, "income", "alex_stock_net_annual"),
             include_stock_in_static_income=assumption_bool(assumptions, "income", "alex_include_stock_in_static_income"),
         )

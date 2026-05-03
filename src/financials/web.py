@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback as _traceback
 from dataclasses import asdict, is_dataclass
 from decimal import Decimal, InvalidOperation
 from html import escape
@@ -408,6 +409,7 @@ class FinancialsWebApp:
         <tr><td>Taxable income</td><td class="num">{fmt_money(result.taxable_income_annual)}/yr</td></tr>
         <tr><td>Income tax</td><td class="num">−{fmt_money(result.income_tax_annual)}/yr</td></tr>
         <tr><td>National Insurance</td><td class="num">−{fmt_money(result.national_insurance_annual)}/yr</td></tr>
+        <tr><td>Student loan (Plan 2)</td><td class="num">−{fmt_money(result.student_loan_annual)}/yr</td></tr>
         <tr class="total"><td>Net annual</td><td class="num">{fmt_money(result.net_income_annual)}/yr</td></tr>
         <tr class="highlight"><td>Net monthly</td><td class="num">{fmt_money(result.net_income_monthly)}/mo</td></tr>
       </tbody>
@@ -998,6 +1000,7 @@ class FinancialsWebApp:
     <td><input name="category" value="{escape(i.category)}" style="border:none;background:transparent;padding:4px 0;width:100%"></td>
     <td><input name="amount" value="{i.amount}" type="number" step="0.01" style="width:90px;text-align:right"></td>
     <td class="num muted">{fmt_money(monthly_amount(i.amount, i.frequency))}</td>
+    <td><select name="frequency" style="width:auto;font-size:12px"><option {"selected" if i.frequency=="monthly" else ""}>monthly</option><option {"selected" if i.frequency=="weekly" else ""}>weekly</option><option {"selected" if i.frequency=="yearly" else ""}>yearly</option></select></td>
     <td><select name="group_name" style="width:auto;font-size:12px">{group_select(i.group_name or "Other")}</select></td>
     <td style="white-space:nowrap">
       <button type="submit" class="btn btn-sm" title="Save">✓</button>
@@ -1027,6 +1030,7 @@ class FinancialsWebApp:
     <td><input name="category" value="{escape(i.category)}" style="border:none;background:transparent;padding:4px 0;width:100%"></td>
     <td><input name="amount" value="{i.amount}" type="number" step="0.01" style="width:90px;text-align:right"></td>
     <td class="num muted">{fmt_money(m)}</td>
+    <td><select name="frequency" style="width:auto;font-size:12px"><option {"selected" if i.frequency=="monthly" else ""}>monthly</option><option {"selected" if i.frequency=="weekly" else ""}>weekly</option><option {"selected" if i.frequency=="yearly" else ""}>yearly</option></select></td>
     <td><select name="group_name" style="width:auto;font-size:12px">{group_select(i.group_name or "Other")}</select></td>
     <td style="white-space:nowrap">
       <button type="submit" class="btn btn-sm" title="Save">✓</button>
@@ -1127,13 +1131,13 @@ class FinancialsWebApp:
   </form>
 </div>
 
-{"<div class='card' style='margin-bottom:16px'><h2><span class='tag tag-income'>Income</span> Other income</h2><div style='overflow-x:auto'><table><thead><tr><th>Category</th><th class='num'>Amount</th><th class='num'>Monthly</th><th>Group</th><th></th></tr></thead><tbody>" + render_editable_rows(income_items, "income") + "</tbody></table></div></div>" if income_items else ""}
+{"<div class='card' style='margin-bottom:16px'><h2><span class='tag tag-income'>Income</span> Other income</h2><div style='overflow-x:auto'><table><thead><tr><th>Category</th><th class='num'>Amount</th><th class='num'>Monthly</th><th>Freq</th><th>Group</th><th></th></tr></thead><tbody>" + render_editable_rows(income_items, "income") + "</tbody></table></div></div>" if income_items else ""}
 
 <div class="card" style="margin-bottom:16px">
   <h2><span class="tag tag-expense">Outgoing</span> Expenses</h2>
   <div style="overflow-x:auto">
   <table>
-    <thead><tr><th>Category</th><th class="num">Amount</th><th class="num">Monthly</th><th>Group</th><th></th></tr></thead>
+    <thead><tr><th>Category</th><th class="num">Amount</th><th class="num">Monthly</th><th>Freq</th><th>Group</th><th></th></tr></thead>
     <tbody>
       {render_group_table(expense_items, "expenses")}
     </tbody>
@@ -1141,7 +1145,7 @@ class FinancialsWebApp:
   </div>
 </div>
 
-{"<div class='card' style='margin-bottom:16px'><h2><span class='tag tag-saving'>Savings</span></h2><div style='overflow-x:auto'><table><thead><tr><th>Category</th><th class='num'>Amount</th><th class='num'>Monthly</th><th>Group</th><th></th></tr></thead><tbody>" + render_editable_rows(saving_items, "savings") + "</tbody></table></div></div>" if saving_items else ""}
+{"<div class='card' style='margin-bottom:16px'><h2><span class='tag tag-saving'>Savings</span></h2><div style='overflow-x:auto'><table><thead><tr><th>Category</th><th class='num'>Amount</th><th class='num'>Monthly</th><th>Freq</th><th>Group</th><th></th></tr></thead><tbody>" + render_editable_rows(saving_items, "savings") + "</tbody></table></div></div>" if saving_items else ""}
 """
         return html_page("Tracker", body, scenario, "/tracker", message)
 
@@ -1232,6 +1236,7 @@ class FinancialsWebApp:
                         summary_id,
                         category=form_value(form, "category") or None,
                         amount=parse_decimal_form(form, "amount", default=None),
+                        frequency=form_value(form, "frequency") or None,
                         group_name=form_value(form, "group_name") or None,
                     )
                 finally:
@@ -1331,10 +1336,10 @@ def make_handler(app: FinancialsWebApp):
                     self.send_error(HTTPStatus.NOT_FOUND)
                     return
                 self.send_html(html)
-            except Exception as exc:
+            except Exception:
                 from html import escape as esc
                 self.send_html(
-                    html_page("Error", f'<div class="card danger"><pre>{esc(str(exc))}</pre></div>', scenario),
+                    html_page("Error", f'<div class="card danger"><pre>{esc(_traceback.format_exc())}</pre></div>', scenario),
                     HTTPStatus.INTERNAL_SERVER_ERROR,
                 )
 
@@ -1350,10 +1355,10 @@ def make_handler(app: FinancialsWebApp):
                 self.send_response(HTTPStatus.SEE_OTHER)
                 self.send_header("Location", location)
                 self.end_headers()
-            except Exception as exc:
+            except Exception:
                 from html import escape as esc
                 self.send_html(
-                    html_page("Error", f'<div class="card danger"><pre>{esc(str(exc))}</pre></div>', scenario),
+                    html_page("Error", f'<div class="card danger"><pre>{esc(_traceback.format_exc())}</pre></div>', scenario),
                     HTTPStatus.BAD_REQUEST,
                 )
 
