@@ -40,8 +40,8 @@ _DEMO_NOTICE = (
 # Map internal server paths to static file names.
 _PAGE_MAP: dict[str, str] = {
     "/": "index.html",
-    "/alex": "alex.html",
-    "/charly": "charly.html",
+    "/alex": "john.html",
+    "/charly": "jane.html",
     "/housing": "housing.html",
     "/plan": "plan.html",
     "/tracker": "tracker.html",
@@ -53,6 +53,14 @@ _PAGE_MAP: dict[str, str] = {
     "/expenses": "tracker.html",
     "/manual-summaries": "tracker.html",
 }
+
+# Name substitutions applied to the rendered HTML before writing to disk.
+# Replaces real-looking names used internally with generic demo names so that
+# the public GitHub Pages preview does not reveal personal information.
+_NAME_SUBSTITUTIONS: list[tuple[str, str]] = [
+    ("Alex", "John"),
+    ("Charly", "Jane"),
+]
 
 _HREF_RE = re.compile(r'href="(/[^"]*)"')
 _ACTION_RE = re.compile(r'action="(/[^"]*)"')
@@ -83,9 +91,17 @@ def inject_demo_notice(html: str) -> str:
     return html.replace("<main>", f"<main>{_DEMO_NOTICE}", 1)
 
 
+def anonymise_names(html: str) -> str:
+    """Replace internal names with generic demo-safe names."""
+    for real, anon in _NAME_SUBSTITUTIONS:
+        html = html.replace(real, anon)
+    return html
+
+
 def postprocess(html: str) -> str:
     html = rewrite_links(html)
     html = inject_demo_notice(html)
+    html = anonymise_names(html)
     return html
 
 
@@ -108,8 +124,8 @@ def build_site(output_dir: Path) -> None:
 
     pages: list[tuple[str, str]] = [
         ("index.html", app.render_summary(scenario)),
-        ("alex.html", app.render_alex(scenario)),
-        ("charly.html", app.render_charly(scenario)),
+        ("john.html", app.render_alex(scenario)),
+        ("jane.html", app.render_charly(scenario)),
         # Render the flat tab for housing — most relevant for the demo.
         ("housing.html", app.render_housing(scenario, tab="flat")),
         # Render the flat tab for the budget plan.
