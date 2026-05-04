@@ -57,9 +57,13 @@ _PAGE_MAP: dict[str, str] = {
 # Name substitutions applied to the rendered HTML before writing to disk.
 # Replaces real-looking names used internally with generic demo names so that
 # the public GitHub Pages preview does not reveal personal information.
-_NAME_SUBSTITUTIONS: list[tuple[str, str]] = [
-    ("Alex", "John"),
-    ("Charly", "Jane"),
+# Word-boundary patterns prevent partial matches (e.g. "Alex" in "Alexander").
+# Lowercase prefix patterns cover assumption key names (e.g. "alex_salary").
+_NAME_SUBSTITUTIONS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\bAlex\b"), "John"),
+    (re.compile(r"\bCharly\b"), "Jane"),
+    (re.compile(r"\balex_"), "john_"),
+    (re.compile(r"\bcharly_"), "jane_"),
 ]
 
 _HREF_RE = re.compile(r'href="(/[^"]*)"')
@@ -93,8 +97,8 @@ def inject_demo_notice(html: str) -> str:
 
 def anonymise_names(html: str) -> str:
     """Replace internal names with generic demo-safe names."""
-    for real, anon in _NAME_SUBSTITUTIONS:
-        html = html.replace(real, anon)
+    for pattern, replacement in _NAME_SUBSTITUTIONS:
+        html = pattern.sub(replacement, html)
     return html
 
 
