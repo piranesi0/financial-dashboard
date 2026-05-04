@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: financial-dashboard
+    runtime: python
+    buildCommand: pip install -e .
+    startCommand: financials web :memory:
+    # Render automatically injects $PORT; run_web_app reads it via os.environ.
