@@ -20,7 +20,7 @@ from financials.mvp import (
 from financials.scenario import get_assumptions, list_scenarios, set_assumption
 from financials.schema import connect_database, initialise_database
 from financials.seeds import upsert_baseline_scenario
-from financials.summaries import add_manual_summary, delete_manual_summary, list_manual_summaries, monthly_amount, update_manual_summary
+from financials.summaries import ManualSummaryItem, add_manual_summary, delete_manual_summary, list_manual_summaries, monthly_amount, update_manual_summary
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +91,7 @@ _NAV_LINKS = [
     ("/alex", "Alex"),
     ("/charly", "Charly"),
     ("/housing", "Housing"),
+    ("/plan", "Plan"),
     ("/tracker", "Tracker"),
     ("/variables", "Variables"),
 ]
@@ -882,6 +883,188 @@ class FinancialsWebApp:
         return html_page("Housing", body, scenario, "/housing", message)
 
     # -----------------------------------------------------------------------
+    # Plan (structured budget planning with living-situation tabs)
+    # -----------------------------------------------------------------------
+
+    def render_plan(self, scenario: str, tab: str = "flat", message: str = "") -> str:
+        conn = self.connection()
+        try:
+            summaries = list_manual_summaries(conn, scenario)
+            # Pull the housing mortgage calculator output for House tab Mortgage hint
+            scenario_id_row = conn.execute(
+                "SELECT id FROM scenario WHERE name = ?", (scenario,)
+            ).fetchone()
+            housing_calc_mortgage: Decimal | None = None
+            if scenario_id_row:
+                row = conn.execute(
+                    "SELECT value FROM calculator_output WHERE scenario_id = ? AND calculator = 'housing' AND key = 'mortgage_monthly_payment'",
+                    (scenario_id_row["id"],),
+                ).fetchone()
+                if row:
+                    housing_calc_mortgage = Decimal(row["value"])
+        finally:
+            conn.close()
+
+        # Plan group names used on this page
+        PLAN_GROUPS = {"Housing-Flat", "Housing-House", "Obligations", "Living", "Lifestyle", "Sinking Funds"}
+        plan_items = [i for i in summaries if (i.group_name or "") in PLAN_GROUPS]
+
+        # Index items by (group_name, category) → item for quick lookup
+        item_index: dict[tuple[str, str], ManualSummaryItem] = {}
+        for i in plan_items:
+            item_index[(i.group_name, i.category)] = i
+
+        # Determine active housing group based on tab
+        housing_group = "Housing-Flat" if tab == "flat" else ("Housing-House" if tab == "house" else None)
+
+        # Section definitions: (display_title, group_name, scope)
+        # Housing section is tab-dependent (None means not shown on current tab)
+        SECTIONS = [
+            ("🏠 Housing", housing_group, "expense"),
+            ("📋 Obligations", "Obligations", "expense"),
+            ("🛒 Living", "Living", "expense"),
+            ("🎉 Lifestyle", "Lifestyle", "expense"),
+            ("💰 Sinking Funds", "Sinking Funds", "saving"),
+        ]
+
+        # Expected category order per group (from docs/budget-plan.md)
+        CATEGORY_ORDER: dict[str, list[str]] = {
+            "Housing-Flat": ["Mortgage", "Electricity", "Gas", "Water", "Broadband",
+                             "Council Tax", "TV Licence", "Home Insurance", "Maintenance"],
+            "Housing-House": ["Mortgage", "Electricity", "Gas", "Water", "Broadband",
+                              "Council Tax", "TV Licence", "Home Insurance", "Maintenance"],
+            "Obligations": ["Car Finance", "Phone (Alex)", "Phone (Charly)",
+                            "Life Insurance", "Car Insurance", "Pet Insurance"],
+            "Living": ["Groceries", "Pet", "Fuel/Transit", "Household",
+                       "Personal Care", "Health", "Clothing", "Baby"],
+            "Lifestyle": ["Subscriptions", "Dining Out", "Hobbies", "Fitness", "Travel", "Gifts"],
+            "Sinking Funds": ["Emergency Fund", "Car Maintenance", "Renewals", "Holiday Fund", "Christmas"],
+        }
+
+        # Calculate totals for summary bar
+        expense_total = Decimal("0")
+        saving_total = Decimal("0")
+        for i in plan_items:
+            m = monthly_amount(i.amount, i.frequency)
+            if i.group_name == housing_group or i.group_name not in {"Housing-Flat", "Housing-House"}:
+                if i.scope == "expense":
+                    expense_total += m
+                elif i.scope == "saving":
+                    saving_total += m
+
+        # Tab bar
+        tab_links = ""
+        for tab_key, tab_label, tab_desc in [
+            ("current", "Current", "Living at family's"),
+            ("flat", "Flat", "Living in the flat"),
+            ("house", "House", "New house purchase"),
+        ]:
+            active = "style=\"background:var(--accent);color:white\"" if tab_key == tab else ""
+            tab_links += (
+                f'<a href="/plan?scenario={escape(scenario)}&tab={tab_key}" '
+                f'class="btn btn-ghost btn-sm" {active}>{escape(tab_label)}</a> '
+            )
+
+        # Render each section
+        sections_html = ""
+        for section_title, group_name, scope in SECTIONS:
+            if group_name is None:
+                # Current tab — no housing costs
+                sections_html += f"""
+<div class="card" style="margin-bottom:16px">
+  <h2>{escape(section_title)}</h2>
+  <p class="muted">No housing costs in this scenario — living at family's place.</p>
+</div>"""
+                continue
+
+            categories = CATEGORY_ORDER.get(group_name, [])
+            # Also include any DB items for this group not in the expected list
+            db_categories = sorted({i.category for i in plan_items if i.group_name == group_name})
+            all_cats = list(dict.fromkeys(categories + [c for c in db_categories if c not in categories]))
+
+            rows_html = ""
+            section_total = Decimal("0")
+            for cat in all_cats:
+                item = item_index.get((group_name, cat))
+                item_id = item.id if item else ""
+                amount_val = item.amount if item else Decimal("0")
+                # For Housing-House Mortgage, fall back to the calculator output if not set
+                is_house_mortgage = group_name == "Housing-House" and cat == "Mortgage"
+                if is_house_mortgage and housing_calc_mortgage is not None and amount_val == Decimal("0"):
+                    amount_val = housing_calc_mortgage
+                monthly_val = monthly_amount(amount_val, item.frequency if item else "monthly")
+                section_total += monthly_val
+                # Extra hint for House Mortgage sourced from the Housing calculator
+                hint_html = ""
+                if is_house_mortgage and housing_calc_mortgage is not None:
+                    hint_html = f' <span class="muted" style="font-size:11px">(from <a href="/housing?scenario={escape(scenario)}&tab=house">Housing</a>)</span>'
+                rows_html += f"""
+<tr>
+  <form method="post" action="/plan?scenario={escape(scenario)}&tab={escape(tab)}">
+    <input type="hidden" name="_action" value="update_item">
+    <input type="hidden" name="_tab" value="{escape(tab)}">
+    <input type="hidden" name="id" value="{escape(str(item_id))}">
+    <input type="hidden" name="group_name" value="{escape(group_name)}">
+    <input type="hidden" name="scope" value="{escape(scope)}">
+    <input type="hidden" name="category" value="{escape(cat)}">
+    <td style="font-weight:600">{escape(cat)}{hint_html}</td>
+    <td style="width:140px">
+      <div style="display:flex;align-items:center;gap:4px">
+        <span class="muted" style="font-size:13px">£</span>
+        <input name="amount" type="number" step="0.01" min="0"
+               value="{amount_val}"
+               style="width:110px;text-align:right">
+      </div>
+    </td>
+    <td class="num muted" style="width:100px">{fmt_money(monthly_val)}/mo</td>
+    <td style="width:40px"><button type="submit" class="btn btn-sm" title="Save">✓</button></td>
+  </form>
+</tr>"""
+
+            sections_html += f"""
+<div class="card" style="margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <h2 style="margin:0">{escape(section_title)}</h2>
+    <span style="font-size:15px;font-weight:700;color:var(--{"red" if scope == "expense" else "accent"})">{fmt_money(section_total)}/mo</span>
+  </div>
+  <table>
+    <thead><tr><th>Category</th><th class="num">Amount (£/mo)</th><th class="num">Monthly</th><th></th></tr></thead>
+    <tbody>{rows_html}
+      <tr class="total"><td>Total</td><td></td><td class="num">{fmt_money(section_total)}/mo</td><td></td></tr>
+    </tbody>
+  </table>
+</div>"""
+
+        body = f"""
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+  <h1 style="margin:0">Budget Plan</h1>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">{tab_links}</div>
+</div>
+
+<div class="grid" style="margin-bottom:20px">
+  <div class="card">
+    <div class="metric red">{fmt_money(expense_total)}</div>
+    <div class="label">Total expenses / month</div>
+  </div>
+  <div class="card">
+    <div class="metric" style="color:var(--accent)">{fmt_money(saving_total)}</div>
+    <div class="label">Total savings / month</div>
+  </div>
+  <div class="card">
+    <div class="metric amber">{fmt_money(expense_total + saving_total)}</div>
+    <div class="label">Total outgoings / month</div>
+  </div>
+</div>
+
+<p class="muted" style="margin-bottom:20px">
+  Edit each amount and click ✓ to save. Switch tabs to compare housing costs for each living situation.
+  Amounts are stored in the same database as the <a href="/tracker?scenario={escape(scenario)}">Tracker</a>.
+</p>
+
+{sections_html}"""
+        return html_page("Budget Plan", body, scenario, "/plan", message)
+
+    # -----------------------------------------------------------------------
     # Tracker (grouped expenses, inline edit)
     # -----------------------------------------------------------------------
 
@@ -1295,6 +1478,37 @@ class FinancialsWebApp:
                 label = "enabled" if enabled_str == "true" else "disabled"
                 return "/charly", f"Nursery costs {label}."
 
+        if path == "/plan":
+            if action == "update_item":
+                item_id_str = form_value(form, "id")
+                amount = parse_decimal_form(form, "amount", default=Decimal("0"))
+                if item_id_str:
+                    # Update existing item
+                    conn = self.connection()
+                    try:
+                        update_manual_summary(conn, int(item_id_str), amount=amount)
+                    finally:
+                        conn.close()
+                else:
+                    # Create new item (plan entry doesn't exist yet for this scenario)
+                    conn = self.connection()
+                    try:
+                        from financials.seeds import SEEDED_PLAN_NOTE_PREFIX
+                        add_manual_summary(
+                            conn,
+                            scenario_name=scenario,
+                            scope=form_value(form, "scope", "expense"),
+                            category=form_value(form, "category"),
+                            amount=amount,
+                            frequency="monthly",
+                            notes=f"{SEEDED_PLAN_NOTE_PREFIX}; added via Plan page",
+                            group_name=form_value(form, "group_name"),
+                        )
+                    finally:
+                        conn.close()
+                tab = form_value(form, "_tab", "flat")
+                return f"/plan?tab={tab}", f"Saved {form_value(form, 'category')}."
+
         return "/", "Unknown action."
 
 
@@ -1328,6 +1542,9 @@ def make_handler(app: FinancialsWebApp):
                     html = app.render_housing(scenario, tab=tab, message=message)
                 elif p in ("/tracker", "/expenses", "/manual-summaries"):
                     html = app.render_tracker(scenario, message)
+                elif p == "/plan":
+                    tab = query.get("tab", ["flat"])[0]
+                    html = app.render_plan(scenario, tab, message)
                 elif p == "/variables":
                     html = app.render_variables(scenario, message)
                 elif p == "/":
@@ -1351,7 +1568,12 @@ def make_handler(app: FinancialsWebApp):
             form = parse_qs(self.rfile.read(length).decode("utf-8"))
             try:
                 target, message = app.handle_post(parsed.path, scenario, form)
-                location = f"{target}?{urlencode({'scenario': scenario, 'message': message})}"
+                # target may already contain query params (e.g. /plan?tab=flat)
+                target_parsed = urlparse(target)
+                target_params = parse_qs(target_parsed.query)
+                target_params["scenario"] = [scenario]
+                target_params["message"] = [message]
+                location = target_parsed.path + "?" + urlencode({k: v[0] for k, v in target_params.items() if v})
                 self.send_response(HTTPStatus.SEE_OTHER)
                 self.send_header("Location", location)
                 self.end_headers()

@@ -10,6 +10,7 @@ from financials.scenario import get_scenario_id
 BASELINE_SCENARIO_NAME = "baseline"
 SEEDED_EXPENSE_NOTE_PREFIX = "seed:example_outgoing"
 SEEDED_BILLS_NOTE_PREFIX = "seed:finances2024"
+SEEDED_PLAN_NOTE_PREFIX = "seed:plan"
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 EXAMPLE_OUTGOING_PATH = PROJECT_ROOT / "sheets" / "example_outgoing.txt"
 
@@ -62,6 +63,62 @@ CATEGORY_GROUP_MAP: dict[str, str] = {
     "Expenses": "Household",
 }
 
+# Budget plan seed data for the /plan page.
+# Each tuple: (scope, category, amount, frequency, group_name)
+# Housing items are split into Housing-Flat and Housing-House to support the
+# living-situation tabs on the plan page.
+PLAN_SEED: list[tuple[str, str, str, str, str]] = [
+    # -- Housing (Flat) --
+    ("expense", "Mortgage", "1124.10", "monthly", "Housing-Flat"),
+    ("expense", "Electricity", "80.00", "monthly", "Housing-Flat"),
+    ("expense", "Gas", "60.00", "monthly", "Housing-Flat"),
+    ("expense", "Water", "45.00", "monthly", "Housing-Flat"),
+    ("expense", "Broadband", "35.00", "monthly", "Housing-Flat"),
+    ("expense", "Council Tax", "165.00", "monthly", "Housing-Flat"),
+    ("expense", "TV Licence", "14.00", "monthly", "Housing-Flat"),
+    ("expense", "Home Insurance", "25.00", "monthly", "Housing-Flat"),
+    ("expense", "Maintenance", "50.00", "monthly", "Housing-Flat"),
+    # -- Housing (House) --
+    ("expense", "Mortgage", "0.00", "monthly", "Housing-House"),
+    ("expense", "Electricity", "80.00", "monthly", "Housing-House"),
+    ("expense", "Gas", "60.00", "monthly", "Housing-House"),
+    ("expense", "Water", "45.00", "monthly", "Housing-House"),
+    ("expense", "Broadband", "35.00", "monthly", "Housing-House"),
+    ("expense", "Council Tax", "180.00", "monthly", "Housing-House"),
+    ("expense", "TV Licence", "14.00", "monthly", "Housing-House"),
+    ("expense", "Home Insurance", "30.00", "monthly", "Housing-House"),
+    ("expense", "Maintenance", "100.00", "monthly", "Housing-House"),
+    # -- Obligations --
+    ("expense", "Car Finance", "290.00", "monthly", "Obligations"),
+    ("expense", "Phone (Alex)", "40.00", "monthly", "Obligations"),
+    ("expense", "Phone (Charly)", "29.00", "monthly", "Obligations"),
+    ("expense", "Life Insurance", "14.00", "monthly", "Obligations"),
+    ("expense", "Car Insurance", "51.00", "monthly", "Obligations"),
+    ("expense", "Pet Insurance", "31.00", "monthly", "Obligations"),
+    # -- Living --
+    ("expense", "Groceries", "800.00", "monthly", "Living"),
+    ("expense", "Pet", "50.00", "monthly", "Living"),
+    ("expense", "Fuel/Transit", "100.00", "monthly", "Living"),
+    ("expense", "Household", "50.00", "monthly", "Living"),
+    ("expense", "Personal Care", "50.00", "monthly", "Living"),
+    ("expense", "Health", "0.00", "monthly", "Living"),
+    ("expense", "Clothing", "50.00", "monthly", "Living"),
+    ("expense", "Baby", "200.00", "monthly", "Living"),
+    # -- Lifestyle --
+    ("expense", "Subscriptions", "50.00", "monthly", "Lifestyle"),
+    ("expense", "Dining Out", "100.00", "monthly", "Lifestyle"),
+    ("expense", "Hobbies", "50.00", "monthly", "Lifestyle"),
+    ("expense", "Fitness", "36.00", "monthly", "Lifestyle"),
+    ("expense", "Travel", "50.00", "monthly", "Lifestyle"),
+    ("expense", "Gifts", "30.00", "monthly", "Lifestyle"),
+    # -- Sinking Funds --
+    ("saving", "Emergency Fund", "200.00", "monthly", "Sinking Funds"),
+    ("saving", "Car Maintenance", "50.00", "monthly", "Sinking Funds"),
+    ("saving", "Renewals", "30.00", "monthly", "Sinking Funds"),
+    ("saving", "Holiday Fund", "100.00", "monthly", "Sinking Funds"),
+    ("saving", "Christmas", "50.00", "monthly", "Sinking Funds"),
+]
+
 
 def decimal_text(value: Decimal) -> str:
     return format(value, "f")
@@ -98,6 +155,7 @@ def upsert_baseline_scenario(connection: sqlite3.Connection) -> int:
     )
     seed_example_outgoing_summaries(connection, BASELINE_SCENARIO_NAME)
     seed_bills_and_income(connection, BASELINE_SCENARIO_NAME)
+    seed_plan_defaults(connection, BASELINE_SCENARIO_NAME)
     connection.commit()
     return int(scenario_id)
 
@@ -216,6 +274,27 @@ def seed_bills_and_income(connection: sqlite3.Connection, scenario_name: str) ->
         [
             (scenario_id, scope, category, amount, frequency, f"{SEEDED_BILLS_NOTE_PREFIX}; 2024 value - update to current", group_name)
             for scope, category, amount, frequency, group_name in BILLS_AND_INCOME_SEED
+        ],
+    )
+
+
+def seed_plan_defaults(connection: sqlite3.Connection, scenario_name: str) -> None:
+    """Seed the structured budget plan categories used by the /plan page."""
+    scenario_id = get_scenario_id(connection, scenario_name)
+    already_seeded = connection.execute(
+        "SELECT 1 FROM manual_summary WHERE scenario_id = ? AND notes LIKE ? LIMIT 1",
+        (scenario_id, f"{SEEDED_PLAN_NOTE_PREFIX}%"),
+    ).fetchone()
+    if already_seeded:
+        return
+    connection.executemany(
+        """
+        INSERT INTO manual_summary (scenario_id, scope, category, amount, frequency, notes, group_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        [
+            (scenario_id, scope, category, amount, frequency, f"{SEEDED_PLAN_NOTE_PREFIX}; default value - update via Plan page", group_name)
+            for scope, category, amount, frequency, group_name in PLAN_SEED
         ],
     )
 

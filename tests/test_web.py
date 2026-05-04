@@ -209,6 +209,79 @@ class WebTest(unittest.TestCase):
         self.assertIn("Nursery calculator", html)
         self.assertIn("Enabled", html)
 
+    def test_render_plan_flat_tab_shows_housing_categories(self) -> None:
+        html = self.app.render_plan("baseline", tab="flat")
+
+        self.assertIn("Budget Plan", html)
+        self.assertIn("Housing", html)
+        self.assertIn("Mortgage", html)
+        self.assertIn("Electricity", html)
+        self.assertIn("Council Tax", html)
+        self.assertIn("Obligations", html)
+        self.assertIn("Car Insurance", html)
+        self.assertIn("Living", html)
+        self.assertIn("Groceries", html)
+        self.assertIn("Lifestyle", html)
+        self.assertIn("Subscriptions", html)
+        self.assertIn("Sinking Funds", html)
+        self.assertIn("Emergency Fund", html)
+
+    def test_render_plan_house_tab_shows_house_housing(self) -> None:
+        html = self.app.render_plan("baseline", tab="house")
+
+        self.assertIn("Budget Plan", html)
+        self.assertIn("Mortgage", html)
+        self.assertIn("Council Tax", html)
+        self.assertNotIn("No housing costs", html)
+
+    def test_render_plan_current_tab_shows_no_housing(self) -> None:
+        html = self.app.render_plan("baseline", tab="current")
+
+        self.assertIn("Budget Plan", html)
+        self.assertIn("No housing costs", html)
+        self.assertIn("Obligations", html)
+        self.assertIn("Living", html)
+
+    def test_plan_update_item_via_post_updates_amount(self) -> None:
+        connection = connect_database(self.database)
+        entry_id = connection.execute(
+            "SELECT id FROM manual_summary WHERE category='Groceries' AND group_name='Living'"
+        ).fetchone()["id"]
+        connection.close()
+
+        target, message = self.app.handle_post(
+            "/plan",
+            "baseline",
+            {"_action": ["update_item"], "id": [str(entry_id)], "_tab": ["flat"],
+             "category": ["Groceries"], "amount": ["650"], "group_name": ["Living"], "scope": ["expense"]},
+        )
+
+        connection = connect_database(self.database)
+        row = connection.execute("SELECT amount FROM manual_summary WHERE id = ?", (entry_id,)).fetchone()
+        connection.close()
+
+        self.assertIn("/plan", target)
+        self.assertIn("Groceries", message)
+        self.assertEqual(row["amount"], "650")
+
+    def test_plan_update_item_creates_new_entry_when_no_id(self) -> None:
+        target, message = self.app.handle_post(
+            "/plan",
+            "baseline",
+            {"_action": ["update_item"], "id": [""], "_tab": ["flat"],
+             "category": ["Custom Item"], "amount": ["99"], "group_name": ["Lifestyle"], "scope": ["expense"]},
+        )
+
+        connection = connect_database(self.database)
+        row = connection.execute(
+            "SELECT amount FROM manual_summary WHERE category='Custom Item' AND group_name='Lifestyle'"
+        ).fetchone()
+        connection.close()
+
+        self.assertIn("/plan", target)
+        self.assertIsNotNone(row)
+        self.assertEqual(row["amount"], "99")
+
 
 if __name__ == "__main__":
     unittest.main()
