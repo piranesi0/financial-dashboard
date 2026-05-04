@@ -1,0 +1,63 @@
+# Deploy the static site preview to GitHub Pages.
+#
+# Source:  main branch — GitHub Actions artifact (modern approach, no branch needed)
+# Dataset: "demo" scenario — fictional, safe-to-publish data
+#
+# One-time setup: in Settings → Pages, set the source to "GitHub Actions".
+#
+# Branch naming note: a dedicated "stage" or "gh-pages" branch is NOT required
+# when deploying via GitHub Actions artifacts.  This workflow uploads a Pages
+# artifact directly, which is the recommended modern approach.
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deployment runs at a time; new pushes wait rather than cancel.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build static site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package
+        run: pip install -e .
+
+      - name: Generate static pages
+        run: python scripts/build_static.py --output _site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

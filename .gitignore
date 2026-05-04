@@ -12,3 +12,4 @@ venv/
 .DS_Store
 .server.pid
 .server.log
+_site/
