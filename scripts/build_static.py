@@ -128,6 +128,8 @@ def build_site(output_dir: Path) -> None:
 
     pages: list[tuple[str, str]] = [
         ("index.html", app.render_summary(scenario)),
+        # render_alex/render_charly use the internal names; postprocess() anonymises
+        # them to "John"/"Jane" before the files are written to disk.
         ("john.html", app.render_alex(scenario)),
         ("jane.html", app.render_charly(scenario)),
         # Render the flat tab for housing — most relevant for the demo.
