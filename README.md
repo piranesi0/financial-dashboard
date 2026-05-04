@@ -1,8 +1,14 @@
 # Financials
 
+
+
 Local-first household financial planning tool. Python + SQLite, no external services, no auth.
 
 Built for Alex & Charly's household: income modelling, expense tracking, flat sale / house purchase scenarios, and Charly's return-to-work options.
+
+
+## Live Preview
+https://piranesi0.github.io/financial-dashboard/
 
 ## Quick start
 
