@@ -101,7 +101,7 @@ def build_parser() -> argparse.ArgumentParser:
     mvp_summary_parser.add_argument("--persist", action="store_true")
 
     web_parser = subparsers.add_parser("web")
-    web_parser.add_argument("database", type=Path)
+    web_parser.add_argument("database", type=str)
     web_parser.add_argument("--host", default="0.0.0.0")
     web_parser.add_argument("--port", type=int, default=8000)
 

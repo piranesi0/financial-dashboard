@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import sqlite3
 import traceback as _traceback
 from dataclasses import asdict, is_dataclass
 from decimal import Decimal, InvalidOperation
@@ -267,11 +269,11 @@ def html_page(title: str, body: str, scenario: str, current_path: str = "/", mes
 # ---------------------------------------------------------------------------
 
 class FinancialsWebApp:
-    def __init__(self, database_path: Path):
-        self.database_path = database_path
+    def __init__(self, database: str | Path):
+        self.database = database
 
     def connection(self):
-        return connect_database(self.database_path)
+        return connect_database(self.database)
 
     # -----------------------------------------------------------------------
     # Dashboard
@@ -1599,16 +1601,31 @@ def make_handler(app: FinancialsWebApp):
 
 
 def run_web_app(database: str | Path, host: str = "0.0.0.0", port: int = 8000) -> None:
-    database_path = Path(database)
-    connection = initialise_database(database_path)
+    # Allow the PORT environment variable to override the default (used by
+    # cloud platforms such as Render and Railway).
+    port = int(os.environ.get("PORT", port))
+
+    connection = initialise_database(database)
     upsert_baseline_scenario(connection)
-    connection.close()
-    server = ThreadingHTTPServer((host, port), make_handler(FinancialsWebApp(database_path)))
+
+    # For in-memory mode, keep one connection permanently open so the shared
+    # in-memory database is not destroyed between requests.
+    anchor: sqlite3.Connection | None = None
+    if str(database) == ":memory:":
+        anchor = connection
+    else:
+        connection.close()
+
+    server = ThreadingHTTPServer((host, port), make_handler(FinancialsWebApp(database)))
+    mode = "ephemeral (seed data only, no persistence)" if str(database) == ":memory:" else str(database)
     print(f"Financials web UI running at http://{host}:{port}")
-    print(f"Database: {database_path}")
+    print(f"Database: {mode}")
     print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nStopped.")
         server.server_close()
+    finally:
+        if anchor is not None:
+            anchor.close()

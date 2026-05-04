@@ -3,6 +3,12 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+# When the database path is the special sentinel ":memory:", all connections
+# use this shared-cache URI so that every thread sees the same in-memory DB.
+# The URI name "financials_mem" is arbitrary but must be consistent.
+_MEMORY_SENTINEL = ":memory:"
+_SHARED_MEMORY_URI = "file:financials_mem?mode=memory&cache=shared"
+
 SCHEMA_SQL = """
 PRAGMA foreign_keys = ON;
 
@@ -87,8 +93,15 @@ CREATE TABLE IF NOT EXISTS calculator_output (
 """
 
 
+def _is_memory(path: str | Path) -> bool:
+    return str(path) == _MEMORY_SENTINEL
+
+
 def connect_database(path: str | Path) -> sqlite3.Connection:
-    connection = sqlite3.connect(path)
+    if _is_memory(path):
+        connection = sqlite3.connect(_SHARED_MEMORY_URI, check_same_thread=False, uri=True)
+    else:
+        connection = sqlite3.connect(path)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
