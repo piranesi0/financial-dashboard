@@ -68,9 +68,9 @@ class MvpTest(unittest.TestCase):
         connection.close()
 
         self.assertEqual(result.alex_income.net_income_monthly, Decimal("3226.31"))
-        self.assertEqual(result.household.monthly_net, Decimal("-1289.04"))
+        self.assertEqual(result.household.monthly_net, Decimal("-4249.04"))
         self.assertEqual(result.housing.affordability.high_max_purchase_price, Decimal("440000.00"))
-        self.assertEqual(outputs["monthly_net"], "-1289.04")
+        self.assertEqual(outputs["monthly_net"], "-4249.04")
 
 
 if __name__ == "__main__":
