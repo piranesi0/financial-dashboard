@@ -992,7 +992,7 @@ class FinancialsWebApp:
                 is_house_mortgage = group_name == "Housing-House" and cat == "Mortgage"
                 if is_house_mortgage and housing_calc_mortgage is not None and amount_val == Decimal("0"):
                     amount_val = housing_calc_mortgage
-                monthly_val = monthly_amount(amount_val, item.frequency if item else "monthly") if item else monthly_amount(amount_val, "monthly")
+                monthly_val = monthly_amount(amount_val, item.frequency if item else "monthly")
                 section_total += monthly_val
                 # Extra hint for House Mortgage sourced from the Housing calculator
                 hint_html = ""
