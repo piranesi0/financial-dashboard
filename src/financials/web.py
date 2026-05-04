@@ -20,7 +20,7 @@ from financials.mvp import (
     calculate_nursery_for_scenario,
 )
 from financials.scenario import get_assumptions, list_scenarios, set_assumption
-from financials.schema import connect_database, initialise_database
+from financials.schema import _MEMORY_SENTINEL, connect_database, initialise_database
 from financials.seeds import upsert_baseline_scenario
 from financials.summaries import ManualSummaryItem, add_manual_summary, delete_manual_summary, list_manual_summaries, monthly_amount, update_manual_summary
 
@@ -1611,13 +1611,13 @@ def run_web_app(database: str | Path, host: str = "0.0.0.0", port: int = 8000) -
     # For in-memory mode, keep one connection permanently open so the shared
     # in-memory database is not destroyed between requests.
     anchor: sqlite3.Connection | None = None
-    if str(database) == ":memory:":
+    if str(database) == _MEMORY_SENTINEL:
         anchor = connection
     else:
         connection.close()
 
     server = ThreadingHTTPServer((host, port), make_handler(FinancialsWebApp(database)))
-    mode = "ephemeral (seed data only, no persistence)" if str(database) == ":memory:" else str(database)
+    mode = "ephemeral (seed data only, no persistence)" if str(database) == _MEMORY_SENTINEL else str(database)
     print(f"Financials web UI running at http://{host}:{port}")
     print(f"Database: {mode}")
     print("Press Ctrl+C to stop.")

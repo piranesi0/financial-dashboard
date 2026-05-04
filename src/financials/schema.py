@@ -99,6 +99,9 @@ def _is_memory(path: str | Path) -> bool:
 
 def connect_database(path: str | Path) -> sqlite3.Connection:
     if _is_memory(path):
+        # check_same_thread=False is intentional: each request opens its own
+        # short-lived connection to the shared in-memory URI, so no single
+        # connection is shared across threads.
         connection = sqlite3.connect(_SHARED_MEMORY_URI, check_same_thread=False, uri=True)
     else:
         connection = sqlite3.connect(path)
