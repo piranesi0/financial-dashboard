@@ -20,7 +20,7 @@ from financials.mvp import (
 from financials.scenario import get_assumptions, list_scenarios, set_assumption
 from financials.schema import connect_database, initialise_database
 from financials.seeds import upsert_baseline_scenario
-from financials.summaries import add_manual_summary, delete_manual_summary, list_manual_summaries, monthly_amount, update_manual_summary
+from financials.summaries import ManualSummaryItem, add_manual_summary, delete_manual_summary, list_manual_summaries, monthly_amount, update_manual_summary
 
 
 # ---------------------------------------------------------------------------
@@ -898,7 +898,7 @@ class FinancialsWebApp:
         plan_items = [i for i in summaries if (i.group_name or "") in PLAN_GROUPS]
 
         # Index items by (group_name, category) → item for quick lookup
-        item_index: dict[tuple[str, str], object] = {}
+        item_index: dict[tuple[str, str], ManualSummaryItem] = {}
         for i in plan_items:
             item_index[(i.group_name, i.category)] = i
 
@@ -1553,7 +1553,7 @@ def make_handler(app: FinancialsWebApp):
                 target_params = parse_qs(target_parsed.query)
                 target_params["scenario"] = [scenario]
                 target_params["message"] = [message]
-                location = target_parsed.path + "?" + urlencode({k: v[0] for k, v in target_params.items()})
+                location = target_parsed.path + "?" + urlencode({k: v[0] for k, v in target_params.items() if v})
                 self.send_response(HTTPStatus.SEE_OTHER)
                 self.send_header("Location", location)
                 self.end_headers()

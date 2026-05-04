@@ -133,8 +133,9 @@ low-level view. The **Plan** page provides a higher-level structured view over t
 ## UI Behaviour
 
 - Tab selection is a `GET` param (`?tab=flat`). Defaults to `flat`.
-- Each section is a separate `<form>` with a **Save** button. Submitting updates all amounts
-  in that section in one POST.
+- Each section is a separate `<form>` with a **Save** button per row. Submitting saves the
+  amount for that individual item.
 - Each form row shows: label, £ amount input, monthly equivalent (calculated from frequency).
 - Section subtotals and grand total are shown at the bottom.
-- A **monthly net** card at the top shows `income − expenses − savings` for the active tab.
+- A **monthly outgoings** card at the top shows `expenses + savings` for the active tab, with
+  separate cards for total expenses and total savings.
