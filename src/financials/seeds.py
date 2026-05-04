@@ -69,7 +69,7 @@ CATEGORY_GROUP_MAP: dict[str, str] = {
 # living-situation tabs on the plan page.
 PLAN_SEED: list[tuple[str, str, str, str, str]] = [
     # -- Housing (Flat) --
-    ("expense", "Mortgage", "0.00", "monthly", "Housing-Flat"),
+    ("expense", "Mortgage", "1124.10", "monthly", "Housing-Flat"),
     ("expense", "Electricity", "80.00", "monthly", "Housing-Flat"),
     ("expense", "Gas", "60.00", "monthly", "Housing-Flat"),
     ("expense", "Water", "45.00", "monthly", "Housing-Flat"),
@@ -89,14 +89,14 @@ PLAN_SEED: list[tuple[str, str, str, str, str]] = [
     ("expense", "Home Insurance", "30.00", "monthly", "Housing-House"),
     ("expense", "Maintenance", "100.00", "monthly", "Housing-House"),
     # -- Obligations --
-    ("expense", "Car Finance", "0.00", "monthly", "Obligations"),
-    ("expense", "Phone (Alex)", "0.00", "monthly", "Obligations"),
-    ("expense", "Phone (Charly)", "0.00", "monthly", "Obligations"),
+    ("expense", "Car Finance", "290.00", "monthly", "Obligations"),
+    ("expense", "Phone (Alex)", "40.00", "monthly", "Obligations"),
+    ("expense", "Phone (Charly)", "29.00", "monthly", "Obligations"),
     ("expense", "Life Insurance", "14.00", "monthly", "Obligations"),
     ("expense", "Car Insurance", "51.00", "monthly", "Obligations"),
     ("expense", "Pet Insurance", "31.00", "monthly", "Obligations"),
     # -- Living --
-    ("expense", "Groceries", "600.00", "monthly", "Living"),
+    ("expense", "Groceries", "800.00", "monthly", "Living"),
     ("expense", "Pet", "50.00", "monthly", "Living"),
     ("expense", "Fuel/Transit", "100.00", "monthly", "Living"),
     ("expense", "Household", "50.00", "monthly", "Living"),

@@ -30,7 +30,7 @@ Obligations, Living, Lifestyle, and Sinking Funds are identical across all three
 #### Flat tab
 | Subcategory | Default (£/mo) |
 |-------------|---------------|
-| Mortgage | — |
+| Mortgage | 1124.10 |
 | Electricity | 80.00 |
 | Gas | 60.00 |
 | Water | 45.00 |
@@ -43,7 +43,7 @@ Obligations, Living, Lifestyle, and Sinking Funds are identical across all three
 #### House tab
 | Subcategory | Default (£/mo) |
 |-------------|---------------|
-| Mortgage | — |
+| Mortgage | Pulled from Housing — House Purchase calculator |
 | Electricity | 80.00 |
 | Gas | 60.00 |
 | Water | 45.00 |
@@ -62,9 +62,9 @@ No housing costs shown (living with family, rent-free).
 
 | Subcategory | Default (£/mo) |
 |-------------|---------------|
-| Car Finance | 0.00 |
-| Phone (Alex) | 0.00 |
-| Phone (Charly) | 0.00 |
+| Car Finance | 290.00 |
+| Phone (Alex) | 40.00 |
+| Phone (Charly) | 29.00 |
 | Life Insurance | 14.00 |
 | Car Insurance | 51.00 |
 | Pet Insurance | 31.00 |
@@ -75,7 +75,7 @@ No housing costs shown (living with family, rent-free).
 
 | Subcategory | Default (£/mo) |
 |-------------|---------------|
-| Groceries | 600.00 |
+| Groceries | 800.00 |
 | Pet | 50.00 |
 | Fuel/Transit | 100.00 |
 | Household | 50.00 |

@@ -43,7 +43,7 @@ class SeedsTest(unittest.TestCase):
         self.assertEqual(assumptions[("income", "charly_hourly_rate")], ("21.90", "money"))
         self.assertEqual(assumptions[("income", "alex_select_points")], ("8622.3544", "decimal"))
         self.assertEqual(assumptions[("categorisation", "projects_scope")], ("personal", "text"))
-        self.assertEqual(expenses["Groceries"], "600.00")
+        self.assertEqual(expenses["Groceries"], "800.00")
         self.assertEqual(expenses["Subscriptions"], "50.00")
         self.assertEqual(expenses["Flat mortgage"], "1124.10")
         self.assertEqual(expenses["Car insurance"], "51.14")

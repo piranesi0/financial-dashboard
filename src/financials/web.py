@@ -890,6 +890,18 @@ class FinancialsWebApp:
         conn = self.connection()
         try:
             summaries = list_manual_summaries(conn, scenario)
+            # Pull the housing mortgage calculator output for House tab Mortgage hint
+            scenario_id_row = conn.execute(
+                "SELECT id FROM scenario WHERE name = ?", (scenario,)
+            ).fetchone()
+            housing_calc_mortgage: Decimal | None = None
+            if scenario_id_row:
+                row = conn.execute(
+                    "SELECT value FROM calculator_output WHERE scenario_id = ? AND calculator = 'housing' AND key = 'mortgage_monthly_payment'",
+                    (scenario_id_row["id"],),
+                ).fetchone()
+                if row:
+                    housing_calc_mortgage = Decimal(row["value"])
         finally:
             conn.close()
 
@@ -976,8 +988,16 @@ class FinancialsWebApp:
                 item = item_index.get((group_name, cat))
                 item_id = item.id if item else ""
                 amount_val = item.amount if item else Decimal("0")
-                monthly_val = monthly_amount(amount_val, item.frequency if item else "monthly") if item else Decimal("0")
+                # For Housing-House Mortgage, fall back to the calculator output if not set
+                is_house_mortgage = group_name == "Housing-House" and cat == "Mortgage"
+                if is_house_mortgage and housing_calc_mortgage is not None and amount_val == Decimal("0"):
+                    amount_val = housing_calc_mortgage
+                monthly_val = monthly_amount(amount_val, item.frequency if item else "monthly") if item else monthly_amount(amount_val, "monthly")
                 section_total += monthly_val
+                # Extra hint for House Mortgage sourced from the Housing calculator
+                hint_html = ""
+                if is_house_mortgage and housing_calc_mortgage is not None:
+                    hint_html = f' <span class="muted" style="font-size:11px">(from <a href="/housing?scenario={escape(scenario)}&tab=house">Housing</a>)</span>'
                 rows_html += f"""
 <tr>
   <form method="post" action="/plan?scenario={escape(scenario)}&tab={escape(tab)}">
@@ -987,7 +1007,7 @@ class FinancialsWebApp:
     <input type="hidden" name="group_name" value="{escape(group_name)}">
     <input type="hidden" name="scope" value="{escape(scope)}">
     <input type="hidden" name="category" value="{escape(cat)}">
-    <td style="font-weight:600">{escape(cat)}</td>
+    <td style="font-weight:600">{escape(cat)}{hint_html}</td>
     <td style="width:140px">
       <div style="display:flex;align-items:center;gap:4px">
         <span class="muted" style="font-size:13px">£</span>
