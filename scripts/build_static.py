@@ -58,7 +58,7 @@ _HREF_RE = re.compile(r'href="(/[^"]*)"')
 _ACTION_RE = re.compile(r'action="(/[^"]*)"')
 
 
-def _rewrite_href(match: re.Match) -> str:  # type: ignore[type-arg]
+def _rewrite_href(match: re.Match[str]) -> str:
     raw = match.group(1)
     # Strip query string to look up the base path.
     base = raw.split("?")[0]
@@ -121,6 +121,8 @@ def build_site(output_dir: Path) -> None:
     for filename, html in pages:
         processed = postprocess(html)
         dest = output_dir / filename
+        # Writing demo HTML (fictional data) to disk is intentional — these
+        # files are the GitHub Pages deployment artifact.
         dest.write_text(processed, encoding="utf-8")
         print(f"  wrote {dest}")
 
