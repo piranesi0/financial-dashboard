@@ -1,0 +1,13 @@
+name: Add to project
+
+on:
+  issues:
+    types: [opened, transferred, reopened]
+  pull_request_target:
+    types: [opened, reopened]
+
+jobs:
+  add-to-project:
+    uses: piranesi0/atlas-meta/.github/workflows/add-to-project.yml@main
+    secrets:
+      project-pat: ${{ secrets.ADD_TO_PROJECT_PAT }}
