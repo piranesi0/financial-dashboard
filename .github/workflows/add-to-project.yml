@@ -10,4 +10,4 @@ jobs:
   add-to-project:
     uses: piranesi0/atlas-meta/.github/workflows/add-to-project.yml@main
     secrets:
-      project-pat: ${{ secrets.ADD_TO_PROJECT_PAT }}
+      project_pat: ${{ secrets.ADD_TO_PROJECT_PAT }}
