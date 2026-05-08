@@ -9,8 +9,5 @@ on:
 jobs:
   add-to-project:
     uses: piranesi0/atlas-meta/.github/workflows/add-to-project.yml@main
-    with:
-      app-id: ${{ vars.ADD_TO_PROJECT_APP_ID }}
     secrets:
-      app-private-key: ${{ secrets.ADD_TO_PROJECT_APP_KEY }}
-
+      project-pat: ${{ secrets.ADD_TO_PROJECT_PAT }}
